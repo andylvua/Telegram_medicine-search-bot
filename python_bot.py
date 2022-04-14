@@ -40,10 +40,15 @@ def scan_handler(update: Update, context: CallbackContext):
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
+    reply_keyboard = [['Відмінити сканування']]
+
     update.message.reply_text(
         'Будь ласка, надішліть мені фото пакування, де я можу *чітко* побачити штрихкод\.',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фотографію'
+                                                                                                  ' для сканування'
+        ),
     )
 
 
@@ -206,7 +211,7 @@ def main() -> None:
 
     start = CommandHandler('start', start_handler)
     scan = MessageHandler(Filters.regex('^(Сканувати|/scan)$'), scan_handler)
-    end_scan = MessageHandler(Filters.regex('Завершити сканування'), end_scan_handler)
+    end_scan = MessageHandler(Filters.regex('^(Завершити сканування|Відмінити сканування)$'), end_scan_handler)
     instructions = MessageHandler(Filters.regex('^(Інструкції|/help)$'), instructions_handler)
     continue_scan = MessageHandler(Filters.regex('^(Зрозуміло!|Ще раз)$'), goto_scan)
     decoder = MessageHandler(Filters.photo, decode_qr)

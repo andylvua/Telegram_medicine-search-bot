@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 1.0.0
+Version: 1.0.1
 """
 
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup
@@ -11,6 +11,10 @@ from pyzbar.pyzbar import decode
 
 import os
 import logging
+
+import requests
+import bs4
+import re
 
 logging.basicConfig(
     format='Time: %(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -46,8 +50,7 @@ def scan_handler(update: Update, context: CallbackContext):
         'Будь ласка, надішліть мені фото пакування, де я можу *чітко* побачити штрихкод\.',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фотографію'
-                                                                                                  ' для сканування'
+            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
         ),
     )
 
@@ -56,9 +59,13 @@ def end_scan_handler(update: Update, context: CallbackContext):
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
+    reply_keyboard = [['Сканувати', 'Інструкції']]
+
     update.message.reply_text(
         '✅ Сканування завершено',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію'),
     )
 
 
@@ -124,10 +131,10 @@ def decode_qr(update: Update, context: CallbackContext):
         update.message.reply_text(parse_mode='HTML',
                                   reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                    resize_keyboard=True,
-                                                                   input_field_placeholder='Надішліть фотографію для '
-                                                                                           'подальшого сканування'),
+                                                                   input_field_placeholder='Продовжуйте'),
                                   text='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' +
-                                       '\n\nМожете перевірити його в ' + f'<a href="{link}"><b>Google</b></a>',
+                                       '\n\nЙмовірно це: ' + '<b>' + get_query_heading(code_str) + '</b>' +
+                                       ' - ' + f'<a href="{link}"><b>Google</b></a>',
                                   quote=True)
 
     except IndexError as e:
@@ -146,6 +153,20 @@ def decode_qr(update: Update, context: CallbackContext):
                                   )),
 
     os.remove("code.png")
+
+
+def get_query_heading(barcode):
+    url = 'https://google.com/search?q=' + barcode
+
+    request_result = requests.get(url)
+    soup = bs4.BeautifulSoup(request_result.text, "html.parser")
+
+    heading_objects = soup.find_all('h3')
+    first_heading = heading_objects[0]
+
+    first_heading_formatted = re.sub(r"\([^()]*\)", "", first_heading.getText().split('-')[0].replace('.', '')
+                                     .replace(str(barcode), '')).lstrip().rstrip()
+    return first_heading_formatted
 
 
 def file_warning(update: Update, context: CallbackContext):
@@ -216,13 +237,13 @@ def main() -> None:
     continue_scan = MessageHandler(Filters.regex('^(Зрозуміло!|Ще раз)$'), goto_scan)
     decoder = MessageHandler(Filters.photo, decode_qr)
     not_file = MessageHandler(Filters.attachment, file_warning)
-    do_not_undestand = MessageHandler(~ Filters.regex('^(Сканувати|/scan)$') &
-                                      ~ Filters.regex('^(Інструкції|/help)$') &
-                                      ~ Filters.regex('^(Зрозуміло!|Ще раз)$') &
-                                      ~ Filters.regex('Завершити сканування') &
-                                      ~ Filters.regex('Про мене') &
-                                      ~ Filters.photo &
-                                      ~ Filters.attachment, undefined_input)
+    do_not_understand = MessageHandler(~ Filters.regex('^(Сканувати|/scan)$') &
+                                       ~ Filters.regex('^(Інструкції|/help)$') &
+                                       ~ Filters.regex('^(Зрозуміло!|Ще раз)$') &
+                                       ~ Filters.regex('Завершити сканування') &
+                                       ~ Filters.regex('Про мене') &
+                                       ~ Filters.photo &
+                                       ~ Filters.attachment, undefined_input)
     cancel = CommandHandler('cancel', cancel_operation)
     about = MessageHandler(Filters.regex('Про мене'), tell_about)
 
@@ -234,7 +255,7 @@ def main() -> None:
     dispatcher.add_handler(continue_scan)
     dispatcher.add_handler(decoder)
     dispatcher.add_handler(not_file)
-    dispatcher.add_handler(do_not_undestand)
+    dispatcher.add_handler(do_not_understand)
     dispatcher.add_handler(about)
 
     updater.start_polling()

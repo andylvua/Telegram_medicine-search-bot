@@ -1,9 +1,7 @@
-![MSB Logo Git](https://user-images.githubusercontent.com/93153950/163717389-ed935cf9-5ce7-4b63-860d-6abf85f6ddcd.png)
+![MSB Logo Git](https://user-images.githubusercontent.com/93153950/163735158-9873b3ec-725b-45c1-b7e2-7c050eb3d542.png)
 
 [![Python 3.10](https://img.shields.io/badge/Python-3.10.2-yellow)](https://www.python.org/downloads/release/python-3102/)
-[![Pillow 9.1.0](https://img.shields.io/badge/Pillow-9.1.0-blue)](https://pypi.org/project/Pillow/)
-[![pyzbar 0.1.9](https://img.shields.io/badge/pyzbar-0.1.9-green)](https://pypi.org/project/pyzbar/)
-[![python-telegram-bot 13.11](https://img.shields.io/badge/python--telegram--bot-13.11-red)](https://pypi.org/project/python-telegram-bot/)
+[![python-telegram-bot 13.11](https://img.shields.io/badge/python--telegram--bot-13.11-blue)](https://pypi.org/project/python-telegram-bot/)
 
 ![Development progress](https://img.shields.io/badge/Development-In%20progress-orange)
 
@@ -12,3 +10,10 @@
 This bot was developed by a team of volunteers from Lviv Polytechnic National University. </br> The purpose of its creation is to help volunteers working at humanitarian aid sorting points. The bot will help you find information and a brief description of medicines via barcode.
 ### Ukrainian 🇺🇦
 Цей бот розроблений командою волонтерів з НУ «Львівська політехніка». </br> Метою його створення є допомога волонтерам, які працюють на пунктах сортування гуманітарної допомоги. Бот допоможе знайти інформацію та короткий опис ліків за допомогою штрих-коду.
+
+## Roadmap
+* [x] **Make a bot conversation logic**
+* [x] **Implement a scanning function**
+* [ ] Connect bot to a database
+* [ ] Test the bot
+* [ ] Release

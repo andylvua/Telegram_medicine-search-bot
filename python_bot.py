@@ -11,6 +11,7 @@ from pyzbar.pyzbar import decode
 
 import os
 import logging
+import configparser
 
 import requests
 import bs4
@@ -20,6 +21,9 @@ logging.basicConfig(
     format='Time: %(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+config = configparser.ConfigParser()
+config.read("config.ini")
 
 
 def start_handler(update: Update, context: CallbackContext):
@@ -227,7 +231,7 @@ def tell_about(update: Update, context: CallbackContext):
 
 def main() -> None:
     # noinspection SpellCheckingInspection
-    updater = Updater("5200767527:AAF_tifl6mrgY0YUmU2epggJUWrD4xb3JP0")
+    updater = Updater(config['Telegram']['token'])
     dispatcher = updater.dispatcher
 
     start = CommandHandler('start', start_handler)

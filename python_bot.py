@@ -164,8 +164,8 @@ def get_query_heading(barcode):
     heading_objects = soup.find_all('h3')
     first_heading = heading_objects[0]
 
-    first_heading_formatted = re.sub(r"\([^()]*\)", "", first_heading.getText().split('-')[0].replace('.', '')
-                                     .replace(str(barcode), '')).lstrip().rstrip()
+    first_heading_formatted = re.sub(r"\([^()]*\)", "", first_heading.getText().split(' - ')[0]
+                                     .replace(str(barcode), '')).lstrip().rstrip('.').rstrip()
     return first_heading_formatted
 
 

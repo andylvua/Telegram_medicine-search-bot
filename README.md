@@ -19,4 +19,4 @@ This bot was developed by a team of volunteers from Lviv Polytechnic National Un
 * [ ] Release
 
 ## Contacts
-**Andrew Yaroshevych - [t.me/andylvua](t.me/andylvua)**
+**Andrew Yaroshevych - [t.me/andylvua](https://t.me/andylvua)**

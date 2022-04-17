@@ -1,8 +1,4 @@
-<div align="center">
-  
-# Telegram MSB - Medicine Search Bot 
-  
-</div>
+![MSB Logo Git](https://user-images.githubusercontent.com/93153950/163717389-ed935cf9-5ce7-4b63-860d-6abf85f6ddcd.png)
 
 [![Python 3.10](https://img.shields.io/badge/Python-3.10.2-yellow)](https://www.python.org/downloads/release/python-3102/)
 [![Pillow 9.1.0](https://img.shields.io/badge/Pillow-9.1.0-blue)](https://pypi.org/project/Pillow/)

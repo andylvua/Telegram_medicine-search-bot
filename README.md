@@ -17,3 +17,6 @@ This bot was developed by a team of volunteers from Lviv Polytechnic National Un
 * [ ] Connect bot to a database
 * [ ] Test the bot
 * [ ] Release
+
+## Contacts
+**Andrew Yaroshevych - [t.me/andylvua](Telegram)**

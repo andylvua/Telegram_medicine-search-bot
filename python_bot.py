@@ -180,10 +180,14 @@ def file_warning(update: Update, context: CallbackContext):
     user = update.message.from_user
     logger.info("%s: File warning", user.first_name)
 
+    reply_keyboard = [['Ще раз']]
+
     update.message.reply_text(
         'Будь ласка, використовуйте *фотографію*, а не файл\.',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardRemove(),
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
+        ),
     )
 
 

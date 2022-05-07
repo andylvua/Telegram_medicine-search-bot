@@ -14,7 +14,7 @@ This bot was developed by a team of volunteers from Lviv Polytechnic National Un
 ## Roadmap
 * [x] **Make a bot conversation logic**
 * [x] **Implement a scanning function**
-* [ ] Connect bot to a database
+* [x] **Connect bot to a database**
 * [ ] Test the bot
 * [ ] Release
 

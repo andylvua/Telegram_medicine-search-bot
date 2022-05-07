@@ -4,3 +4,4 @@ pyzbar==0.1.9
 requests~=2.27.1
 bs4~=0.0.1
 beautifulsoup4==4.11.1
+pymongo~=4.1.1

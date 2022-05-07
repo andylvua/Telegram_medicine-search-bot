@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 1.0.1
+Version: 2.0.0
 """
 
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup
@@ -17,6 +17,8 @@ import requests
 import bs4
 import re
 
+from pymongo import MongoClient
+
 logging.basicConfig(
     format='Time: %(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
@@ -25,8 +27,13 @@ logger = logging.getLogger(__name__)
 config = configparser.ConfigParser()
 config.read("config.ini")
 
+cluster = MongoClient(config['Database']['cluster'])
 
-def start_handler(update: Update, context: CallbackContext):
+db = cluster.TestBotDatabase
+collection = db.TestBotCollection
+
+
+def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -44,7 +51,7 @@ def start_handler(update: Update, context: CallbackContext):
     )
 
 
-def scan_handler(update: Update, context: CallbackContext):
+def scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -59,7 +66,7 @@ def scan_handler(update: Update, context: CallbackContext):
     )
 
 
-def end_scan_handler(update: Update, context: CallbackContext):
+def end_scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -73,7 +80,7 @@ def end_scan_handler(update: Update, context: CallbackContext):
     )
 
 
-def instructions_handler(update: Update, context: CallbackContext):
+def instructions_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -102,7 +109,7 @@ def instructions_handler(update: Update, context: CallbackContext):
                                )
 
 
-def goto_scan(update: Update, context: CallbackContext):
+def goto_scan(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -114,7 +121,19 @@ def goto_scan(update: Update, context: CallbackContext):
     return scan_handler(update=update, context=context)
 
 
-def decode_qr(update: Update, context: CallbackContext):
+def db_query(code) -> str:
+    if collection.count_documents({"code": code}) != 0:
+        query_result = collection.find_one({"code": code}, {"_id": 0})
+        output = f"<b>Штрих-код</b>: {query_result['code']}" \
+                 f"\n<b>Назва</b>: {query_result['name']} " \
+                 f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
+                 f"\n<b>Опис</b>: {query_result['description']} "
+        return output
+    else:
+        return "Нічого не знайдено ❌"
+
+
+def retrieve_results(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: Photo received", user.first_name)
 
@@ -140,9 +159,17 @@ def decode_qr(update: Update, context: CallbackContext):
                                                                    resize_keyboard=True,
                                                                    input_field_placeholder='Продовжуйте'),
                                   text='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' +
-                                       '\n\nЙмовірно це: ' + '<b>' + get_query_heading(code_str) + '</b>' +
-                                       ' - ' + f'<a href="{link}"><b>Google</b></a>',
+                                       '<b>' + '\n\nРезультати пошуку по хмарній базі даних:\n' + '</b>' +
+                                       db_query(code_str),
                                   quote=True)
+
+        update.message.reply_text(parse_mode='HTML',
+                                  reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                                   resize_keyboard=True,
+                                                                   input_field_placeholder='Продовжуйте'),
+                                  text='<b>' + 'Також можете перевірити цей штрихкод у Google:' + '</b>' +
+                                       '\n\nЙмовірно це: ' + '<b>' + get_query_heading(code_str) + '</b>' +
+                                       ' - ' + f'<a href="{link}"><b>Google</b></a>')
 
     except IndexError as e:
         logger.info(e)
@@ -162,7 +189,7 @@ def decode_qr(update: Update, context: CallbackContext):
     os.remove("code.png")
 
 
-def get_query_heading(barcode):
+def get_query_heading(barcode) -> str:
     url = 'https://google.com/search?q=' + barcode
 
     request_result = requests.get(url)
@@ -176,7 +203,7 @@ def get_query_heading(barcode):
     return first_heading_formatted
 
 
-def file_warning(update: Update, context: CallbackContext):
+def file_warning(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: File warning", user.first_name)
 
@@ -191,7 +218,7 @@ def file_warning(update: Update, context: CallbackContext):
     )
 
 
-def undefined_input(update: Update, context: CallbackContext):
+def undefined_input(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -204,7 +231,7 @@ def undefined_input(update: Update, context: CallbackContext):
     )
 
 
-def cancel_operation(update: Update, context: CallbackContext):
+def cancel_operation(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -218,7 +245,7 @@ def cancel_operation(update: Update, context: CallbackContext):
     )
 
 
-def tell_about(update: Update, context: CallbackContext):
+def tell_about(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -246,7 +273,7 @@ def main() -> None:
     end_scan = MessageHandler(Filters.regex('^(Завершити сканування|Відмінити сканування)$'), end_scan_handler)
     instructions = MessageHandler(Filters.regex('^(Інструкції|/help)$'), instructions_handler)
     continue_scan = MessageHandler(Filters.regex('^(Зрозуміло!|Ще раз)$'), goto_scan)
-    decoder = MessageHandler(Filters.photo, decode_qr)
+    decoder = MessageHandler(Filters.photo, retrieve_results)
     not_file = MessageHandler(Filters.attachment, file_warning)
     do_not_understand = MessageHandler(~ Filters.regex('^(Сканувати|/scan)$') &
                                        ~ Filters.regex('^(Інструкції|/help)$') &

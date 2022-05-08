@@ -4,6 +4,7 @@
 
 [![Python 3.10](https://img.shields.io/badge/Python-3.10.2-yellow)](https://www.python.org/downloads/release/python-3102/)
 [![python-telegram-bot 13.11](https://img.shields.io/badge/python--telegram--bot-13.11-blue)](https://pypi.org/project/python-telegram-bot/)
+[![pymongo 4.1.1](https://img.shields.io/badge/pymongo-4.1.1-green)](https://pypi.org/project/pymongo/)
 
 ![Development progress](https://img.shields.io/badge/Development-In%20progress-orange)
 

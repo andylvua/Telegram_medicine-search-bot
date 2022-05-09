@@ -3,7 +3,7 @@ Author: Andrew Yaroshevych
 Version: 2.0.0
 """
 
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 from PIL import Image
@@ -16,7 +16,7 @@ import configparser
 from pymongo import MongoClient
 
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ collection = db.TestBotCollection
 # Conversation states
 NAME, INGREDIENT, ABOUT, CHECK, INSERT = range(5)
 
-drug_info = {
+DRUG_INFO = {
     "name": None,
     "active_ingredient": None,
     "description": None,
@@ -38,7 +38,7 @@ drug_info = {
 }
 
 
-def start_handler(update: Update, _: CallbackContext):
+def start_handler(update: Update, context: CallbackContext):
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -70,24 +70,32 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
-def db_query(code):
-    logger.info("Database quired")
-
+def db_check_availability(code_str) -> bool | None:
     try:
-        if collection.count_documents({"code": code}) != 0:
-            query_result = collection.find_one({"code": code}, {"_id": 0})
-            output = f"<b>Назва</b>: {query_result['name']} " \
-                     f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
-                     f"\n<b>Опис</b>: {query_result['description']} "
-            return output
+        logger.info("Database quired. Checking availability")
+        if collection.count_documents({"code": code_str}) != 0:
+            return True
         else:
-            return
+            return False
+    except Exception as e:
+        logger.error(e)
+        return
+
+
+def retrieve_db_query(code_str) -> str | None:
+    try:
+        logger.info("Database quired. Retrieving results")
+        query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        output = f"<b>Назва</b>: {query_result['name']} " \
+                 f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
+                 f"\n<b>Опис</b>: {query_result['description']} "
+        return output
     except Exception as e:
         logger.info(e)
         return
 
 
-def retrieve_results(update: Update, context: CallbackContext) -> None:
+def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: Photo received", user.first_name)
 
@@ -102,24 +110,30 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
     new_file.download('code.png')
 
     try:
+        logger.info("Trying to decode")
+
         result = decode(Image.open('code.png'))
         code_str = result[0].data.decode("utf-8")
-        drug_info["code"] = code_str
+        DRUG_INFO["code"] = code_str
         link = 'https://www.google.com/search?q=' + code_str
 
         reply_keyboard = [['Завершити сканування']]
         reply_keyboard2 = [['Так', 'Ні']]
 
-        if db_query(code_str) is not None:
+        if db_check_availability(code_str):
+            logger.info("The barcode is present in the database")
+
             update.message.reply_text(parse_mode='HTML',
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
                                                                        input_field_placeholder='Продовжуйте'),
                                       text='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
                                            ' наявний у моїй базі даних:\n\n' +
-                                           db_query(code_str),
+                                           retrieve_db_query(code_str),
                                       quote=True)
         else:
+            logger.info("The barcode is missing from the database. Asking to add info")
+
             update.message.reply_text(parse_mode='HTML',
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard2, one_time_keyboard=True,
                                                                        resize_keyboard=True,
@@ -130,7 +144,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       quote=True)
 
     except IndexError as e:
-        logger.info(e)
+        logger.info("Failed to scan")
 
         reply_keyboard = [['Ще раз', 'Інструкції']]
 
@@ -144,14 +158,19 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       input_field_placeholder='Оберіть опцію'
                                   )),
     finally:
+        logger.info("Operation ended. Deleting photo")
         os.remove("code.png")
 
 
-def start_adding(update: Update, _: CallbackContext) -> int:
+def start_adding(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
+    logger.info("User %s started adding process", user.first_name)
+
     reply_keyboard = [['Скасувати додавання']]
 
     if update.message.text != "Так" and not update.message.photo:
+        logger.info("Photo is missing, asking to scan one")
+
         update.message.reply_text(
             'Добре.\nСпершу, надішліть фото штрих-коду',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -162,7 +181,7 @@ def start_adding(update: Update, _: CallbackContext) -> int:
 
         return NAME
     elif not update.message.photo:
-        logger.info("Started collecting info")
+        logger.info("Photo already scanned, asking for a name")
         update.message.reply_text(
             'Добре.\nСпершу, надішліть назву медикаменту',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -191,17 +210,19 @@ def get_name(update: Update, context: CallbackContext):
     try:
         result = decode(Image.open('code.png'))
         code_str = result[0].data.decode("utf-8")
-        drug_info["code"] = code_str
-        if collection.count_documents({"code": code_str}) != 0:
+        if db_check_availability(code_str):
+            logger.info("This barcode already exists. Cancelling adding process")
+
             update.message.reply_text(text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
                                       quote=True,
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True),
                                       )
-            logger.info("Cancelling, barcode already exists")
-            return cancel(update=update, _=context)
+            return cancel(update=update, context=context)
         else:
-            logger.info("Added barcode info")
+            logger.info("Barcode scanned successfully")
+            DRUG_INFO["code"] = code_str
+            logger.info("Storing barcode info")
             update.message.reply_text(text="Штрих-код відскановано успішно ✅",
                                       quote=True,
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -209,7 +230,7 @@ def get_name(update: Update, context: CallbackContext):
                                       )
 
     except IndexError as e:
-        logger.info(e)
+        logger.info("Failed to scan")
 
         update.message.reply_text(text="*На жаль, сталася помилка\. Мені не вдалось відсканувати штрих\-код ❌ *"
                                        "\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
@@ -217,10 +238,11 @@ def get_name(update: Update, context: CallbackContext):
                                   quote=True,
                                   parse_mode='MarkdownV2',
                                   ),
-        return start_adding(update=update, _=context)
+        return start_adding(update=update, context=context)
     finally:
         os.remove("code.png")
 
+    logger.info("Asking for a name")
     update.message.reply_text(
         text='Надішліть назву медикаменту',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -231,14 +253,16 @@ def get_name(update: Update, context: CallbackContext):
     return INGREDIENT
 
 
-def get_active_ingredient(update: Update, _: CallbackContext) -> int:
+def get_active_ingredient(update: Update, context: CallbackContext) -> int:
     logger.info("Entered name of the drug: %s", update.message.text)
 
     user = update.message.from_user
     reply_keyboard = [['Скасувати додавання']]
 
     name = update.message.text
-    drug_info["name"] = name
+    DRUG_INFO["name"] = name
+
+    logger.info("Asking for an active ingredient")
 
     update.message.reply_text(text='Вкажіть, будь ласка, діючу речовину медикаменту',
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -250,14 +274,16 @@ def get_active_ingredient(update: Update, _: CallbackContext) -> int:
     return ABOUT
 
 
-def get_about(update: Update, _: CallbackContext) -> int:
+def get_about(update: Update, context: CallbackContext) -> int:
     logger.info("Entered active ingredient of the drug: %s", update.message.text)
 
     user = update.message.from_user
     reply_keyboard = [['Скасувати додавання']]
 
     active_ingredient = update.message.text
-    drug_info["active_ingredient"] = active_ingredient
+    DRUG_INFO["active_ingredient"] = active_ingredient
+
+    logger.info("Asking for a description")
 
     update.message.reply_text(
         text='Тепер надішліть короткий опис даного препарату',
@@ -270,16 +296,16 @@ def get_about(update: Update, _: CallbackContext) -> int:
     return CHECK
 
 
-def check_info(update: Update, _: CallbackContext) -> int:
+def check_info(update: Update, context: CallbackContext) -> int:
     logger.info("Entered description: %s. Now checking info", update.message.text)
 
     user = update.message.from_user
     description = update.message.text
-    drug_info["description"] = description
+    DRUG_INFO["description"] = description
 
-    output = f"<b>Назва</b>: {drug_info['name']} " \
-             f"\n<b>Діюча речовина</b>: {drug_info['active_ingredient']} " \
-             f"\n<b>Опис</b>: {drug_info['description']} "
+    output = f"<b>Назва</b>: {DRUG_INFO['name']} " \
+             f"\n<b>Діюча речовина</b>: {DRUG_INFO['active_ingredient']} " \
+             f"\n<b>Опис</b>: {DRUG_INFO['description']} "
 
     reply_keyboard = [['Так, додати до бази даних', 'Ні, скасувати']]
 
@@ -295,28 +321,38 @@ def check_info(update: Update, _: CallbackContext) -> int:
     return INSERT
 
 
-def insert_to_db(update: Update, _: CallbackContext) -> int:
+def insert_to_db(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
-    logger.info("Checked info.")
+
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
     if update.message.text == 'Так, додати до бази даних':
-        post_id = collection.insert_one(drug_info).inserted_id
-        logger.info("Added successfully")
+        post_id = collection.insert_one(DRUG_INFO).inserted_id
+        logger.info("Checked info. Added successfully")
         update.message.reply_text(
-            '✅ Препарат успішно додано до бази даних'
+            text='✅ Препарат успішно додано до бази даних',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію"
+                                             )
         )
     else:
-        logger.info("Canceled adding")
+        logger.info("User %s canceled adding", user.first_name)
         update.message.reply_text(
-            '☑️ Гаразд, додавання скасовано'
+            text='☑️ Гаразд, додавання скасовано',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію"
+                                             )
         )
 
-    for key in drug_info.keys():
-        drug_info[key] = None
-    logger.info("Clearing info: %s", drug_info)
+    for key in DRUG_INFO.keys():
+        DRUG_INFO[key] = None
+    logger.info("Clearing info: %s", DRUG_INFO)
     return ConversationHandler.END
 
 
-def cancel(update: Update, _: CallbackContext) -> int:
+def cancel(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
@@ -404,7 +440,7 @@ def main() -> None:
 
     scan = MessageHandler(Filters.regex('^(Перевірити наявність|/scan|Ще раз)$'), scan_handler)
     start = CommandHandler('start', start_handler)
-    decoder = MessageHandler(Filters.photo, retrieve_results)
+    decoder = MessageHandler(Filters.photo, retrieve_scan_results)
     not_file = MessageHandler(Filters.attachment, file_warning)
     end_scan = MessageHandler(Filters.regex('^(Завершити сканування|Відмінити сканування|Зрозуміло!|Ні)$'),
                               main_keyboard_handler)

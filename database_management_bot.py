@@ -23,7 +23,7 @@ db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 
 # Conversation states
-INGREDIENT, ABOUT, CHECK, INSERT = range(4)
+NAME, INGREDIENT, ABOUT, CHECK, INSERT = range(5)
 
 drug_info = {
     "name": None,
@@ -56,7 +56,8 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     reply_keyboard = [['Відмінити сканування']]
 
     update.message.reply_text(
-        'Будь ласка, надішліть мені фото пакування, де я можу *чітко* побачити штрихкод\.',
+        'Будь ласка, надсилайте мені фото пакувань, де я можу *чітко* побачити штрихкод '
+        'для перевірки наявності\.',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
@@ -81,7 +82,6 @@ def db_query(code):
         return
 
 
-# noinspection DuplicatedCode
 def retrieve_results(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: Photo received", user.first_name)
@@ -138,16 +138,89 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
                                       input_field_placeholder='Оберіть опцію'
                                   )),
+    finally:
+        os.remove("code.png")
 
-    os.remove("code.png")
 
-
-def get_name(update: Update, _: CallbackContext) -> int:
+def start_adding(update: Update, _: CallbackContext) -> int:
     user = update.message.from_user
-    logger.info("Started collecting info")
+    reply_keyboard = [['Скасувати додавання']]
+
+    if update.message.text != "Так" and not update.message.photo:
+        update.message.reply_text(
+            'Добре.\nСпершу, надішліть фото штрих-коду',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Надішліть фото'
+                                             ),
+        )
+
+        return NAME
+    elif not update.message.photo:
+        logger.info("Started collecting info")
+        update.message.reply_text(
+            'Добре.\nСпершу, надішліть назву медикаменту',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Введіть назву'
+                                             ),
+        )
+        return INGREDIENT
+
+
+def get_name(update: Update, context: CallbackContext):
+    logger.info("Storing photo")
+
+    user = update.message.from_user
+    reply_keyboard = [['Скасувати додавання']]
+
+    if update.message.photo:
+        id_img = update.message.photo[-1].file_id
+    else:
+        return
+
+    foto = context.bot.getFile(id_img)
+    new_file = context.bot.get_file(foto.file_id)
+    new_file.download('code.png')
+
+    try:
+        result = decode(Image.open('code.png'))
+        code_str = result[0].data.decode("utf-8")
+        drug_info["code"] = code_str
+        if collection.count_documents({"code": code_str}) != 0:
+            update.message.reply_text(text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
+                                      quote=True,
+                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                                       resize_keyboard=True),
+                                      )
+            logger.info("Cancelling, barcode already exists")
+            return cancel(update=update, _=context)
+        else:
+            logger.info("Added barcode info")
+            update.message.reply_text(text="Штрих-код відскановано успішно ✅",
+                                      quote=True,
+                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                                       resize_keyboard=True),
+                                      )
+
+    except IndexError as e:
+        logger.info(e)
+
+        update.message.reply_text(text="*На жаль, сталася помилка\. Мені не вдалось відсканувати штрих\-код ❌ *"
+                                       "\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
+                                       "або подивіться інструкції до сканування за допомогою команди */help*",
+                                  quote=True,
+                                  parse_mode='MarkdownV2',
+                                  ),
+        return start_adding(update=update, _=context)
+    finally:
+        os.remove("code.png")
+
     update.message.reply_text(
-        'Добре. \nСпершу, надішліть назву медикаменту',
-        reply_markup=ReplyKeyboardRemove(),
+        text='Надішліть назву медикаменту',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder="Введіть назву")
     )
 
     return INGREDIENT
@@ -157,12 +230,17 @@ def get_active_ingredient(update: Update, _: CallbackContext) -> int:
     logger.info("Entered name of the drug: %s", update.message.text)
 
     user = update.message.from_user
+    reply_keyboard = [['Скасувати додавання']]
+
     name = update.message.text
     drug_info["name"] = name
 
-    update.message.reply_text(
-        'Вкажіть, будь ласка, діючу речовину медикаменту'
-    )
+    update.message.reply_text(text='Вкажіть, будь ласка, діючу речовину медикаменту',
+                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                               resize_keyboard=True,
+                                                               input_field_placeholder="Введіть діючу речовину"
+                                                               ),
+                              )
 
     return ABOUT
 
@@ -171,11 +249,17 @@ def get_about(update: Update, _: CallbackContext) -> int:
     logger.info("Entered active ingredient of the drug: %s", update.message.text)
 
     user = update.message.from_user
+    reply_keyboard = [['Скасувати додавання']]
+
     active_ingredient = update.message.text
     drug_info["active_ingredient"] = active_ingredient
 
     update.message.reply_text(
-        'Тепер надішліть короткий опис даного препарату'
+        text='Тепер надішліть короткий опис даного препарату',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder="Введіть опис"
+                                         ),
     )
 
     return CHECK
@@ -195,10 +279,12 @@ def check_info(update: Update, _: CallbackContext) -> int:
     reply_keyboard = [['Так, додати до бази даних', 'Ні, скасувати']]
 
     update.message.reply_text(text='<b>Введена інформація:</b>\n\n' + output +
-                              '\n\n❓Ви точно бажаєте додати її до бази даних?',
+                                   '\n\n❓Ви точно бажаєте додати її до бази даних?',
                               parse_mode='HTML',
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                               resize_keyboard=True,)
+                                                               resize_keyboard=True,
+                                                               input_field_placeholder="Оберіть опцію"
+                                                               )
                               )
 
     return INSERT
@@ -227,11 +313,83 @@ def insert_to_db(update: Update, _: CallbackContext) -> int:
 
 def cancel(update: Update, _: CallbackContext) -> int:
     user = update.message.from_user
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
     logger.info("User %s canceled the conversation.", user.first_name)
+    update.message.reply_text(text='ℹ️ Операцію додавання скасовано',
+                              reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                               one_time_keyboard=True, resize_keyboard=True,
+                                                               input_field_placeholder='Оберіть опцію'
+                                                               )
+                              )
+
+    return ConversationHandler.END
+
+
+def file_warning(update: Update, context: CallbackContext) -> None:
+    user = update.message.from_user
+    logger.info("%s: File warning", user.first_name)
+
+    reply_keyboard = [['Ще раз']]
+
     update.message.reply_text(
-        '☑️ Гаразд, операцію додавання скасовано', reply_markup=ReplyKeyboardRemove()
+        'Будь ласка, використовуйте *фотографію*, а не файл\.',
+        parse_mode='MarkdownV2',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
+        ),
     )
 
+
+def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
+    user = update.message.from_user
+    logger.info("%s: %s", user.first_name, update.message.text)
+
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
+    if update.message.text not in ["Зрозуміло!", "Ні"]:
+        update.message.reply_text(
+            '☑️ Сканування завершено',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію'),
+        )
+    else:
+        update.message.reply_text(
+            'Гаразд',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію'),
+        )
+
+
+def instructions_handler(update: Update, context: CallbackContext) -> None:
+    user = update.message.from_user
+    logger.info("%s: %s", user.first_name, update.message.text)
+
+    reply_keyboard = [['Зрозуміло!']]
+
+    pic = 'resources/How_to_scan.png'
+    update.message.reply_photo(open(pic, 'rb'),
+                               caption='🔍 Щоб відсканувати штрихкод та отримати опис ліків \- надішліть мені фото '
+                                       'пакування, де я можу *чітко* побачити штрихкод\.'
+                                       '\n\n▶️ Почати сканування у будь\-який момент можна за допомогою команди */scan*'
+                                       '\n\n✏️ Зверніть увагу, ви можете надсилати одразу декілька фотографій\.'
+                                       '\n\n❗️ Переконайтесь, що фотографія *не розмита*, а штрихкод розташований '
+                                       '*вертикально* або *горизонтально*\. '
+                                       'Не фотографуйте надто далеко, та намагайтесь тримати камеру *паралельно* '
+                                       'до упаковки\! '
+                                       '\nЦе мінімізує кількість помилок та дозволить боту працювати коректно\.'
+                                       '\n\n✅ Після сканування ви можете надсилати фото далі\. '
+                                       '\nАби завершити сканування \- натисніть відповідну кнопку\.'
+                                       '\n\n ↩️ Відмінити будь\-яку дію можна командою */cancel*'
+                                       '\n\n 💬 Ви можете викликати це повідомлення у будь\-який момент, '
+                                       'надіславши команду */help*',
+                               parse_mode='MarkdownV2',
+                               reply_markup=ReplyKeyboardMarkup(
+                                   reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
+                                   input_field_placeholder='Оберіть опцію'),
+                               )
     return ConversationHandler.END
 
 
@@ -239,33 +397,46 @@ def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
 
-    scan = MessageHandler(Filters.regex('^(Перевірити наявність|/scan)$'), scan_handler)
+    scan = MessageHandler(Filters.regex('^(Перевірити наявність|/scan|Ще раз)$'), scan_handler)
     start = CommandHandler('start', start_handler)
     decoder = MessageHandler(Filters.photo, retrieve_results)
+    not_file = MessageHandler(Filters.attachment, file_warning)
+    end_scan = MessageHandler(Filters.regex('^(Завершити сканування|Відмінити сканування|Зрозуміло!|Ні)$'),
+                              main_keyboard_handler)
+    instructions = MessageHandler(Filters.regex('^(Інструкції|/help)$'), instructions_handler)
 
     conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(Filters.text("Так"), get_name)],
+        entry_points=[MessageHandler(Filters.regex('^(Так|Додати новий медикамент)$'), start_adding)],
         states={
+            NAME: [
+                MessageHandler(Filters.photo & ~Filters.command & ~Filters.text("Скасувати додавання"), get_name)
+            ],
             INGREDIENT: [
-                MessageHandler(Filters.text & ~Filters.command, get_active_ingredient)
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"),
+                               get_active_ingredient)
             ],
             ABOUT: [
-                MessageHandler(Filters.text & ~Filters.command, get_about),
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"), get_about),
             ],
             CHECK: [
-                MessageHandler(Filters.text & ~Filters.command, check_info)
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"), check_info)
             ],
             INSERT: [
-                MessageHandler(Filters.text, insert_to_db)
+                MessageHandler(Filters.text & ~Filters.text("Скасувати додавання"), insert_to_db)
             ]
         },
-        fallbacks=[CommandHandler('cancel', cancel)],
+        fallbacks=[CommandHandler('cancel', cancel),
+                   MessageHandler(Filters.text("Скасувати додавання"), cancel),
+                   CommandHandler("help", instructions_handler)],
     )
 
     dispatcher.add_handler(conv_handler)
     dispatcher.add_handler(start)
     dispatcher.add_handler(scan)
     dispatcher.add_handler(decoder)
+    dispatcher.add_handler(not_file)
+    dispatcher.add_handler(end_scan)
+    dispatcher.add_handler(instructions)
 
     updater.start_polling()
     updater.idle()

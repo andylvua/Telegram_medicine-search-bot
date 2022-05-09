@@ -43,7 +43,8 @@ def start_handler(update: Update, context: CallbackContext) -> None:
         '🇺🇦 '
         '*Привіт\! Я бот для пошуку медикаментів\.*'
         '\nЯ допоможу Вам знайти коротку інформацію про ліки\.'
-        '\n\nОберіть опцію, будь ласка\.',
+        '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- рекомендую подивитись розділ "Інструкції"'
+        '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Оберіть опцію'
@@ -73,7 +74,7 @@ def end_scan_handler(update: Update, context: CallbackContext) -> None:
     reply_keyboard = [['Сканувати', 'Інструкції']]
 
     update.message.reply_text(
-        '✅ Сканування завершено',
+        '☑️ Сканування завершено',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію'),
@@ -130,9 +131,10 @@ def db_query(code) -> str:
                  f"\n<b>Опис</b>: {query_result['description']} "
         return output
     else:
-        return "Нічого не знайдено ❌"
+        return "Цей штрих-код відсутній у моїй базі даних ❌"
 
 
+# noinspection DuplicatedCode
 def retrieve_results(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: Photo received", user.first_name)
@@ -159,17 +161,17 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                                                    resize_keyboard=True,
                                                                    input_field_placeholder='Продовжуйте'),
                                   text='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' +
-                                       '<b>' + '\n\nРезультати пошуку по хмарній базі даних:\n' + '</b>' +
+                                       '<b>' + '\n\n🔍 Результати пошуку:\n' + '</b>' +
                                        db_query(code_str),
                                   quote=True)
 
-        update.message.reply_text(parse_mode='HTML',
-                                  reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                   resize_keyboard=True,
-                                                                   input_field_placeholder='Продовжуйте'),
-                                  text='<b>' + 'Також можете перевірити цей штрихкод у Google:' + '</b>' +
-                                       '\n\nЙмовірно це: ' + '<b>' + get_query_heading(code_str) + '</b>' +
-                                       ' - ' + f'<a href="{link}"><b>Google</b></a>')
+        # update.message.reply_text(parse_mode='HTML',
+        #                           reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+        #                                                            resize_keyboard=True,
+        #                                                            input_field_placeholder='Продовжуйте'),
+        #                           text='<b>' + 'Також можете перевірити цей штрихкод у Google:' + '</b>' +
+        #                                '\n\nЙмовірно це: ' + '<b>' + get_query_heading(code_str) + '</b>' +
+        #                                ' - ' + f'<a href="{link}"><b>Google</b></a>')
 
     except IndexError as e:
         logger.info(e)
@@ -185,8 +187,8 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
                                       input_field_placeholder='Оберіть опцію'
                                   )),
-
-    os.remove("code.png")
+    finally:
+        os.remove("code.png")
 
 
 def get_query_heading(barcode) -> str:
@@ -238,7 +240,7 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
     reply_keyboard = [['Сканувати', 'Інструкції']]
 
     update.message.reply_text(
-        '*Гаразд*',
+        '☑️ Гаразд, операцію скасовано',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію'),

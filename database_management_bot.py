@@ -39,7 +39,7 @@ DRUG_INFO = {
 }
 
 
-def start_handler(update: Update, context: CallbackContext):
+def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -49,9 +49,10 @@ def start_handler(update: Update, context: CallbackContext):
         '*Привіт\! Я бот для адміністування бази даних Telegram MSB\.*'
         '\n\nОберіть опцію, будь ласка\.',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Оберіть опцію'
-        ),
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
     )
 
 
@@ -65,13 +66,14 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
         'Будь ласка, надсилайте мені фото пакувань, де я можу *чітко* побачити штрихкод '
         'для перевірки наявності\.',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
-        ),
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Надішліть фото')
     )
 
 
-def db_check_availability(code_str) -> bool | None:
+def db_check_availability(code_str) -> bool or None:
     try:
         logger.info("Database quired. Checking availability")
         if collection.count_documents({"code": code_str}) != 0:
@@ -83,7 +85,7 @@ def db_check_availability(code_str) -> bool | None:
         return
 
 
-def retrieve_db_query(code_str) -> str | None:
+def retrieve_db_query(code_str) -> str or None:
     try:
         logger.info("Database quired. Retrieving results")
         query_result = collection.find_one({"code": code_str}, {"_id": 0})
@@ -96,7 +98,7 @@ def retrieve_db_query(code_str) -> str | None:
         return
 
 
-def retrieve_db_photo(code_str) -> Image:
+def retrieve_db_photo(code_str) -> Image or None:
     try:
         logger.info("Database quired. Retrieving photo")
         query_result = collection.find_one({"code": code_str}, {"_id": 0})
@@ -127,7 +129,6 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         result = decode(Image.open('code.png'))
         code_str = result[0].data.decode("utf-8")
         DRUG_INFO["code"] = code_str
-        link = 'https://www.google.com/search?q=' + code_str
 
         reply_keyboard = [['Завершити сканування']]
         reply_keyboard2 = [['Так', 'Ні']]
@@ -136,42 +137,50 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
             logger.info("The barcode is present in the database")
             img = retrieve_db_photo(code_str)
             img.save("retrieved_image.jpg")
-            update.message.reply_photo(open("retrieved_image.jpg", 'rb'),
-                                       parse_mode='HTML',
-                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                        resize_keyboard=True,
-                                                                        input_field_placeholder='Продовжуйте'),
-                                       caption='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
-                                               ' наявний у моїй базі даних:\n\n' +
-                                               retrieve_db_query(code_str),
-                                       quote=True)
+
+            update.message.reply_photo(
+                open("retrieved_image.jpg", 'rb'),
+                parse_mode='HTML',
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Продовжуйте'),
+                caption='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
+                        ' наявний у моїй базі даних:\n\n' +
+                        retrieve_db_query(code_str),
+                quote=True
+            )
+
             os.remove("retrieved_image.jpg")
         else:
             logger.info("The barcode is missing from the database. Asking to add info")
 
-            update.message.reply_text(parse_mode='HTML',
-                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard2, one_time_keyboard=True,
-                                                                       resize_keyboard=True,
-                                                                       input_field_placeholder='Продовжуйте'),
-                                      text='❌ Штрих-код ' + '<b>' + code_str + '</b>' +
-                                           ' відсутній у моїй базі даних.\n\n' +
-                                           'Чи бажаєте Ви додати інформацію про цей медикамент?',
-                                      quote=True)
+            update.message.reply_text(
+                parse_mode='HTML',
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard2, one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Продовжуйте'),
+                text='❌ Штрих-код ' + '<b>' + code_str + '</b>' +
+                     ' відсутній у моїй базі даних.\n\n' +
+                     'Чи бажаєте Ви додати інформацію про цей медикамент?',
+                quote=True
+            )
 
     except IndexError as e:
         logger.info("Failed to scan")
 
         reply_keyboard = [['Ще раз', 'Інструкції']]
 
-        update.message.reply_text(text="*На жаль, сталася помилка ❌ *"
-                                       "\nСпробуйте ще раз, або подивіться інструкції до сканування та "
-                                       "переконайтесь, що робите все правильно\.",
-                                  quote=True,
-                                  parse_mode='MarkdownV2',
-                                  reply_markup=ReplyKeyboardMarkup(
-                                      reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
-                                      input_field_placeholder='Оберіть опцію'
-                                  )),
+        update.message.reply_text(
+            text="*На жаль, сталася помилка ❌ *"
+                 "\nСпробуйте ще раз, або подивіться інструкції до сканування та "
+                 "переконайтесь, що робите все правильно\.",
+            quote=True,
+            parse_mode='MarkdownV2',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
     finally:
         logger.info("Operation ended. Deleting photo")
         os.remove("code.png")
@@ -188,10 +197,10 @@ def start_adding(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             'Добре.\nСпершу, надішліть фото штрих-коду',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
                                              resize_keyboard=True,
-                                             input_field_placeholder='Надішліть фото'
-                                             ),
+                                             input_field_placeholder='Надішліть фото')
         )
 
         return NAME
@@ -199,15 +208,15 @@ def start_adding(update: Update, context: CallbackContext) -> int:
         logger.info("Photo already scanned, asking for a name")
         update.message.reply_text(
             'Добре.\nСпершу, надішліть назву медикаменту',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
                                              resize_keyboard=True,
-                                             input_field_placeholder='Введіть назву'
-                                             ),
+                                             input_field_placeholder='Введіть назву')
         )
         return INGREDIENT
 
 
-def get_name(update: Update, context: CallbackContext):
+def get_name(update: Update, context: CallbackContext) -> int or None:
     logger.info("Storing photo")
 
     user = update.message.from_user
@@ -227,31 +236,38 @@ def get_name(update: Update, context: CallbackContext):
         if db_check_availability(code_str):
             logger.info("This barcode already exists. Cancelling adding process")
 
-            update.message.reply_text(text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
-                                      quote=True,
-                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                       resize_keyboard=True),
-                                      )
+            update.message.reply_text(
+                text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
+                quote=True,
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True)
+            )
+
             return cancel(update=update, context=context)
         else:
             logger.info("Barcode scanned successfully")
             DRUG_INFO["code"] = code_str
             logger.info("Storing barcode info")
-            update.message.reply_text(text="Штрих-код відскановано успішно ✅",
-                                      quote=True,
-                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                       resize_keyboard=True),
-                                      )
+            update.message.reply_text(
+                text="Штрих-код відскановано успішно ✅",
+                quote=True,
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True)
+            )
 
     except IndexError as e:
         logger.info("Failed to scan")
 
-        update.message.reply_text(text="*На жаль, сталася помилка\. Мені не вдалось відсканувати штрих\-код ❌ *"
-                                       "\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
-                                       "або подивіться інструкції до сканування за допомогою команди */help*",
-                                  quote=True,
-                                  parse_mode='MarkdownV2',
-                                  ),
+        update.message.reply_text(
+            text="*На жаль, сталася помилка\. Мені не вдалось відсканувати штрих\-код ❌ *"
+                 "\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
+                 "або подивіться інструкції до сканування за допомогою команди */help*",
+            quote=True,
+            parse_mode='MarkdownV2',
+        ),
+
         return start_adding(update=update, context=context)
     finally:
         os.remove("code.png")
@@ -259,7 +275,8 @@ def get_name(update: Update, context: CallbackContext):
     logger.info("Asking for a name")
     update.message.reply_text(
         text='Надішліть назву медикаменту',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
                                          resize_keyboard=True,
                                          input_field_placeholder="Введіть назву")
     )
@@ -278,12 +295,12 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
 
     logger.info("Asking for an active ingredient")
 
-    update.message.reply_text(text='Вкажіть, будь ласка, діючу речовину медикаменту',
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                               resize_keyboard=True,
-                                                               input_field_placeholder="Введіть діючу речовину"
-                                                               ),
-                              )
+    update.message.reply_text(
+        text='Вкажіть, будь ласка, діючу речовину медикаменту',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder="Введіть діючу речовину"),
+    )
 
     return ABOUT
 
@@ -303,8 +320,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
         text='Тепер надішліть короткий опис даного препарату',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                          resize_keyboard=True,
-                                         input_field_placeholder="Введіть опис"
-                                         ),
+                                         input_field_placeholder="Введіть опис")
     )
 
     return PHOTO
@@ -323,8 +339,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
         text='Також, надішліть фото передньої сторони упаковки медикаменту',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                          resize_keyboard=True,
-                                         input_field_placeholder="Надішліть фото"
-                                         ),
+                                         input_field_placeholder="Надішліть фото")
     )
     return CHECK
 
@@ -350,15 +365,15 @@ def check_info(update: Update, context: CallbackContext) -> int:
 
     reply_keyboard = [['Так, додати до бази даних', 'Ні, скасувати']]
 
-    update.message.reply_photo(open("photo.jpg", 'rb'),
-                               caption='<b>Введена інформація:</b>\n\n' + output +
-                                       '\n\n❓Ви точно бажаєте додати її до бази даних?',
-                               parse_mode='HTML',
-                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                resize_keyboard=True,
-                                                                input_field_placeholder="Оберіть опцію"
-                                                                )
-                               )
+    update.message.reply_photo(
+        open("photo.jpg", 'rb'),
+        caption='<b>Введена інформація:</b>\n\n' + output +
+                '\n\n❓Ви точно бажаєте додати її до бази даних?',
+        parse_mode='HTML',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder="Оберіть опцію")
+    )
     os.remove("photo.jpg")
 
     return INSERT
@@ -376,8 +391,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
             text='✅ Препарат успішно додано до бази даних',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                              resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію"
-                                             )
+                                             input_field_placeholder="Оберіть опцію")
         )
     else:
         logger.info("User %s canceled adding", user.first_name)
@@ -385,13 +399,15 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
             text='☑️ Гаразд, додавання скасовано',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                              resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію"
-                                             )
+                                             input_field_placeholder="Оберіть опцію")
         )
+
+    logger.info("Clearing info: %s", DRUG_INFO)
 
     for key in DRUG_INFO.keys():
         DRUG_INFO[key] = None
-    logger.info("Clearing info: %s", DRUG_INFO)
+    logger.info("Cleared")
+
     return ConversationHandler.END
 
 
@@ -400,12 +416,12 @@ def cancel(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
     logger.info("User %s canceled the conversation.", user.first_name)
-    update.message.reply_text(text='ℹ️ Операцію додавання скасовано',
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                               one_time_keyboard=True, resize_keyboard=True,
-                                                               input_field_placeholder='Оберіть опцію'
-                                                               )
-                              )
+    update.message.reply_text(
+        text='ℹ️ Операцію додавання скасовано',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True, resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
 
     return ConversationHandler.END
 
@@ -419,9 +435,10 @@ def file_warning(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(
         'Будь ласка, використовуйте *фотографію*, а не файл\.',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
-        ),
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Надішліть фото')
     )
 
 
@@ -436,14 +453,14 @@ def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
             '☑️ Сканування завершено',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                              resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію'),
+                                             input_field_placeholder='Оберіть опцію')
         )
     else:
         update.message.reply_text(
             'Гаразд',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                              resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію'),
+                                             input_field_placeholder='Оберіть опцію')
         )
 
 
@@ -454,26 +471,28 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
     reply_keyboard = [['Зрозуміло!']]
 
     pic = 'resources/How_to_scan.png'
-    update.message.reply_photo(open(pic, 'rb'),
-                               caption='🔍 Щоб відсканувати штрихкод та отримати опис ліків \- надішліть мені фото '
-                                       'пакування, де я можу *чітко* побачити штрихкод\.'
-                                       '\n\n▶️ Почати сканування у будь\-який момент можна за допомогою команди */scan*'
-                                       '\n\n✏️ Зверніть увагу, ви можете надсилати одразу декілька фотографій\.'
-                                       '\n\n❗️ Переконайтесь, що фотографія *не розмита*, а штрихкод розташований '
-                                       '*вертикально* або *горизонтально*\. '
-                                       'Не фотографуйте надто далеко, та намагайтесь тримати камеру *паралельно* '
-                                       'до упаковки\! '
-                                       '\nЦе мінімізує кількість помилок та дозволить боту працювати коректно\.'
-                                       '\n\n✅ Після сканування ви можете надсилати фото далі\. '
-                                       '\nАби завершити сканування \- натисніть відповідну кнопку\.'
-                                       '\n\n ↩️ Відмінити будь\-яку дію можна командою */cancel*'
-                                       '\n\n 💬 Ви можете викликати це повідомлення у будь\-який момент, '
-                                       'надіславши команду */help*',
-                               parse_mode='MarkdownV2',
-                               reply_markup=ReplyKeyboardMarkup(
-                                   reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
-                                   input_field_placeholder='Оберіть опцію'),
-                               )
+    update.message.reply_photo(
+        open(pic, 'rb'),
+        caption='🔍 Щоб відсканувати штрихкод та отримати опис ліків \- надішліть мені фото '
+                'пакування, де я можу *чітко* побачити штрихкод\.'
+                '\n\n▶️ Почати сканування у будь\-який момент можна за допомогою команди */scan*'
+                '\n\n✏️ Зверніть увагу, ви можете надсилати одразу декілька фотографій\.'
+                '\n\n❗️ Переконайтесь, що фотографія *не розмита*, а штрихкод розташований '
+                '*вертикально* або *горизонтально*\. '
+                'Не фотографуйте надто далеко, та намагайтесь тримати камеру *паралельно* '
+                'до упаковки\! '
+                '\nЦе мінімізує кількість помилок та дозволить боту працювати коректно\.'
+                '\n\n✅ Після сканування ви можете надсилати фото далі\. '
+                '\nАби завершити сканування \- натисніть відповідну кнопку\.'
+                '\n\n ↩️ Відмінити будь\-яку дію можна командою */cancel*'
+                '\n\n 💬 Ви можете викликати це повідомлення у будь\-який момент, '
+                'надіславши команду */help*',
+        parse_mode='MarkdownV2',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
     return ConversationHandler.END
 
 
@@ -514,7 +533,7 @@ def main() -> None:
         },
         fallbacks=[CommandHandler('cancel', cancel),
                    MessageHandler(Filters.text("Скасувати додавання"), cancel),
-                   CommandHandler("help", instructions_handler)],
+                   CommandHandler("help", instructions_handler)]
     )
 
     dispatcher.add_handler(conv_handler)

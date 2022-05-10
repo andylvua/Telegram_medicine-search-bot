@@ -2,7 +2,6 @@
 Author: Andrew Yaroshevych
 Version: 2.0.0
 """
-
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler
 

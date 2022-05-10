@@ -1,9 +1,7 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.0.0
+Version: 2.1.0
 """
-import io
-
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
@@ -11,6 +9,7 @@ from PIL import Image
 from pyzbar.pyzbar import decode
 
 import os
+import io
 import logging
 import configparser
 

@@ -2,6 +2,7 @@
 Author: Andrew Yaroshevych
 Version: 2.0.0
 """
+import io
 
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
@@ -28,13 +29,14 @@ db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 
 # Conversation states
-NAME, INGREDIENT, ABOUT, CHECK, INSERT = range(5)
+NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT = range(6)
 
 DRUG_INFO = {
     "name": None,
     "active_ingredient": None,
     "description": None,
-    "code": None
+    "code": None,
+    "photo": b''
 }
 
 
@@ -82,14 +84,16 @@ def db_check_availability(code_str) -> bool | None:
         return
 
 
-def retrieve_db_query(code_str) -> str | None:
+def retrieve_db_query(code_str) -> tuple[str, Image] | None:
     try:
         logger.info("Database quired. Retrieving results")
         query_result = collection.find_one({"code": code_str}, {"_id": 0})
-        output = f"<b>Назва</b>: {query_result['name']} " \
-                 f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
-                 f"\n<b>Опис</b>: {query_result['description']} "
-        return output
+        str_output = f"<b>Назва</b>: {query_result['name']} " \
+                     f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
+                     f"\n<b>Опис</b>: {query_result['description']} "
+
+        img = Image.open(io.BytesIO(query_result['photo']))
+        return str_output, img
     except Exception as e:
         logger.info(e)
         return
@@ -122,15 +126,18 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 
         if db_check_availability(code_str):
             logger.info("The barcode is present in the database")
-
-            update.message.reply_text(parse_mode='HTML',
-                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                       resize_keyboard=True,
-                                                                       input_field_placeholder='Продовжуйте'),
-                                      text='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
-                                           ' наявний у моїй базі даних:\n\n' +
-                                           retrieve_db_query(code_str),
-                                      quote=True)
+            img = retrieve_db_query(code_str)[1]
+            img.save("retrieved_image.jpg")
+            update.message.reply_photo(open("retrieved_image.jpg", 'rb'),
+                                       parse_mode='HTML',
+                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                                        resize_keyboard=True,
+                                                                        input_field_placeholder='Продовжуйте'),
+                                       caption='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
+                                               ' наявний у моїй базі даних:\n\n' +
+                                               retrieve_db_query(code_str)[0],
+                                       quote=True)
+            os.remove("retrieved_image.jpg")
         else:
             logger.info("The barcode is missing from the database. Asking to add info")
 
@@ -293,15 +300,42 @@ def get_about(update: Update, context: CallbackContext) -> int:
                                          ),
     )
 
+    return PHOTO
+
+
+def get_photo(update: Update, context: CallbackContext) -> int:
+    logger.info("Entered description: %s. Asking for a photo", update.message.text)
+
+    user = update.message.from_user
+    reply_keyboard = [['Скасувати додавання']]
+
+    description = update.message.text
+    DRUG_INFO["description"] = description
+
+    update.message.reply_text(
+        text='Також, надішліть фото передньої сторони упаковки медикаменту',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder="Надішліть фото"
+                                         ),
+    )
     return CHECK
 
 
 def check_info(update: Update, context: CallbackContext) -> int:
-    logger.info("Entered description: %s. Now checking info", update.message.text)
+    logger.info("Now checking info")
 
     user = update.message.from_user
-    description = update.message.text
-    DRUG_INFO["description"] = description
+
+    id_img = update.message.photo[-1].file_id
+    photo = context.bot.getFile(id_img)
+    photo.download('photo.jpg')
+
+    img = Image.open("photo.jpg")
+    image_bytes = io.BytesIO()
+    img.save(image_bytes, format='JPEG')
+
+    DRUG_INFO["photo"] = image_bytes.getvalue()
 
     output = f"<b>Назва</b>: {DRUG_INFO['name']} " \
              f"\n<b>Діюча речовина</b>: {DRUG_INFO['active_ingredient']} " \
@@ -309,14 +343,16 @@ def check_info(update: Update, context: CallbackContext) -> int:
 
     reply_keyboard = [['Так, додати до бази даних', 'Ні, скасувати']]
 
-    update.message.reply_text(text='<b>Введена інформація:</b>\n\n' + output +
-                                   '\n\n❓Ви точно бажаєте додати її до бази даних?',
-                              parse_mode='HTML',
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                               resize_keyboard=True,
-                                                               input_field_placeholder="Оберіть опцію"
-                                                               )
-                              )
+    update.message.reply_photo(open("photo.jpg", 'rb'),
+                               caption='<b>Введена інформація:</b>\n\n' + output +
+                                       '\n\n❓Ви точно бажаєте додати її до бази даних?',
+                               parse_mode='HTML',
+                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                                resize_keyboard=True,
+                                                                input_field_placeholder="Оберіть опцію"
+                                                                )
+                               )
+    os.remove("photo.jpg")
 
     return INSERT
 
@@ -459,8 +495,11 @@ def main() -> None:
             ABOUT: [
                 MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"), get_about),
             ],
+            PHOTO: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"), get_photo),
+            ],
             CHECK: [
-                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"), check_info)
+                MessageHandler(Filters.photo & ~Filters.command & ~Filters.text("Скасувати додавання"), check_info)
             ],
             INSERT: [
                 MessageHandler(Filters.text & ~Filters.text("Скасувати додавання"), insert_to_db)

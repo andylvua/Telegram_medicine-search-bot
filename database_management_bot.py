@@ -83,16 +83,25 @@ def db_check_availability(code_str) -> bool | None:
         return
 
 
-def retrieve_db_query(code_str) -> tuple[str, Image] | None:
+def retrieve_db_query(code_str) -> str | None:
     try:
         logger.info("Database quired. Retrieving results")
         query_result = collection.find_one({"code": code_str}, {"_id": 0})
         str_output = f"<b>Назва</b>: {query_result['name']} " \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
                      f"\n<b>Опис</b>: {query_result['description']} "
+        return str_output
+    except Exception as e:
+        logger.info(e)
+        return
 
+
+def retrieve_db_photo(code_str) -> Image:
+    try:
+        logger.info("Database quired. Retrieving photo")
+        query_result = collection.find_one({"code": code_str}, {"_id": 0})
         img = Image.open(io.BytesIO(query_result['photo']))
-        return str_output, img
+        return img
     except Exception as e:
         logger.info(e)
         return
@@ -125,7 +134,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 
         if db_check_availability(code_str):
             logger.info("The barcode is present in the database")
-            img = retrieve_db_query(code_str)[1]
+            img = retrieve_db_photo(code_str)
             img.save("retrieved_image.jpg")
             update.message.reply_photo(open("retrieved_image.jpg", 'rb'),
                                        parse_mode='HTML',
@@ -134,7 +143,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                                                                         input_field_placeholder='Продовжуйте'),
                                        caption='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
                                                ' наявний у моїй базі даних:\n\n' +
-                                               retrieve_db_query(code_str)[0],
+                                               retrieve_db_query(code_str),
                                        quote=True)
             os.remove("retrieved_image.jpg")
         else:
@@ -210,8 +219,7 @@ def get_name(update: Update, context: CallbackContext):
         return
 
     foto = context.bot.getFile(id_img)
-    new_file = context.bot.get_file(foto.file_id)
-    new_file.download('code.png')
+    foto.download('code.png')
 
     try:
         result = decode(Image.open('code.png'))

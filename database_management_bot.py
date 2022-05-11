@@ -394,7 +394,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
     else:
-        logger.info("User %s canceled adding", user.first_name)
+        logger.info("User %s canceled adding process", user.first_name)
         update.message.reply_text(
             text='☑️ Гаразд, додавання скасовано',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -415,7 +415,7 @@ def cancel(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
-    logger.info("User %s canceled the conversation.", user.first_name)
+    logger.info("User %s canceled the adding process", user.first_name)
     update.message.reply_text(
         text='ℹ️ Операцію додавання скасовано',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,

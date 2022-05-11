@@ -2,8 +2,8 @@
 Author: Andrew Yaroshevych
 Version: 2.0.0
 """
-from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup
-from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler
+from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler
 
 from PIL import Image
 from pyzbar.pyzbar import decode
@@ -31,12 +31,14 @@ cluster = MongoClient(config['Database']['cluster'])
 db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 
+GOOGLE_SEARCH = "True"
+
 
 def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Про мене']]
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування', 'Про мене']]
 
     update.message.reply_text(
         '🇺🇦 '
@@ -70,7 +72,7 @@ def end_scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції']]
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
 
     update.message.reply_text(
         '☑️ Сканування завершено',
@@ -100,6 +102,8 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
                                        '\n\n✅ Після сканування ви можете надсилати фото далі\. '
                                        '\nАби завершити сканування \- натисніть відповідну кнопку\.'
                                        '\n\n ↩️ Відмінити будь\-яку дію можна командою */cancel*'
+                                       '\n\n ⚙️ За допомогою команди */settings* можна налаштувати функцію пошуку '
+                                       'медикаменту у *Google*'
                                        '\n\n 💬 Ви можете викликати це повідомлення у будь\-який момент, '
                                        'надіславши команду */help*',
                                parse_mode='MarkdownV2',
@@ -164,13 +168,13 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                        db_query(code_str),
                                   quote=True)
 
-        # update.message.reply_text(parse_mode='HTML',
-        #                           reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-        #                                                            resize_keyboard=True,
-        #                                                            input_field_placeholder='Продовжуйте'),
-        #                           text='<b>' + 'Також можете перевірити цей штрихкод у Google:' + '</b>' +
-        #                                '\n\nЙмовірно це: ' + '<b>' + get_query_heading(code_str) + '</b>' +
-        #                                ' - ' + f'<a href="{link}"><b>Google</b></a>')
+        if GOOGLE_SEARCH == "True":
+            update.message.reply_text(parse_mode='HTML',
+                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                                       resize_keyboard=True,
+                                                                       input_field_placeholder='Продовжуйте'),
+                                      text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(code_str) +
+                                           ' - ' + f'<a href="{link}"><b>Google</b></a>')
 
     except IndexError as e:
         logger.info(e)
@@ -223,7 +227,7 @@ def undefined_input(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції']]
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
 
     update.message.reply_text(
         'Я вас не розумію 🧐.\nОберіть, будь ласка, одну з доступних опцій',
@@ -236,7 +240,7 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції']]
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
 
     update.message.reply_text(
         '☑️ Гаразд, операцію скасовано',
@@ -264,6 +268,63 @@ def tell_about(update: Update, context: CallbackContext) -> None:
     )
 
 
+def settings(update: Update, context: CallbackContext) -> None:
+    """Sends a message with three inline buttons attached."""
+    if GOOGLE_SEARCH == "True":
+        keyboard = [
+            [
+                InlineKeyboardButton("Ввімкнено ✅", callback_data="True"),
+                InlineKeyboardButton("Вимкнено", callback_data="False"),
+            ]
+        ]
+    else:
+        keyboard = [
+            [
+                InlineKeyboardButton("Ввімкнено", callback_data="True"),
+                InlineKeyboardButton("Вимкнено ✅", callback_data="False"),
+            ]
+        ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text('*⚙️ Налаштування *'
+                              '\n\nВивід результатів пошуку Google при скануванні:  ',
+                              reply_markup=reply_markup,
+                              parse_mode="MarkdownV2")
+
+
+def google_search_set(update: Update, context: CallbackContext) -> None:
+    """Parses the CallbackQuery and updates the message text."""
+    global GOOGLE_SEARCH
+    query = update.callback_query
+
+    query.answer()
+
+    GOOGLE_SEARCH = query.data
+
+    if GOOGLE_SEARCH == "True":
+        keyboard = [
+            [
+                InlineKeyboardButton("Ввімкнено ✅", callback_data="True"),
+                InlineKeyboardButton("Вимкнено", callback_data="False"),
+            ]
+        ]
+    else:
+        keyboard = [
+            [
+                InlineKeyboardButton("Ввімкнено", callback_data="True"),
+                InlineKeyboardButton("Вимкнено ✅", callback_data="False"),
+            ]
+        ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    query.edit_message_text('*⚙️ Налаштування *'
+                            '\n\nВивід результатів пошуку Google при скануванні:  ',
+                            reply_markup=reply_markup,
+                            parse_mode="MarkdownV2")
+
+
 def main() -> None:
     # noinspection SpellCheckingInspection
     updater = Updater(config['Telegram']['token'])
@@ -285,6 +346,9 @@ def main() -> None:
                                        ~ Filters.attachment, undefined_input)
     cancel = CommandHandler('cancel', cancel_operation)
     about = MessageHandler(Filters.regex('Про мене'), tell_about)
+
+    dispatcher.add_handler(CallbackQueryHandler(google_search_set))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^(Налаштування|/settings)$'), settings))
 
     dispatcher.add_handler(start)
     dispatcher.add_handler(scan)

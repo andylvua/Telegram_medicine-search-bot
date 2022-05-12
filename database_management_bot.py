@@ -61,14 +61,15 @@ def restricted(func):
             logger.info("Admin is already registered")
         else:
             update.message.reply_text(
-                    "❌ Ви не можете проводити операцій з базою даних\. \n\nВаш ID *{}* не зареєстровано "
-                    "як адміністратора"
-                    "\n\nАби зареєструватись, виконайте команду */authorize*".format(user_id),
-                    parse_mode='MarkdownV2',
-                )
+                "❌ Ви не можете проводити операцій з базою даних\. \n\nВаш ID *{}* не зареєстровано "
+                "як адміністратора"
+                "\n\nАби зареєструватись, виконайте команду */authorize*".format(user_id),
+                parse_mode='MarkdownV2',
+            )
             logger.info("Unauthorized access denied for {}".format(user_id))
             return
         return func(update, context, *args, **kwargs)
+
     return wrapped
 
 
@@ -558,7 +559,10 @@ def register(update: Update, context: CallbackContext):
     contact_button = KeyboardButton(text="Надіслати контакт", request_contact=True)
     cancel_button = KeyboardButton(text="Скасувати реєстрацію")
     custom_keyboard = [[contact_button, cancel_button]]
-    reply_markup = ReplyKeyboardMarkup(custom_keyboard)
+    reply_markup = ReplyKeyboardMarkup(custom_keyboard,
+                                       one_time_keyboard=True,
+                                       resize_keyboard=True,
+                                       input_field_placeholder='Реєстрація')
     update.message.reply_text(
         text='🔐 Реєстрація потрібна для забеспечення безпеки та зменшення кількості спаму'
              '\n\n✅ *Аби зареєструватись, оберіть опцію "Надіслати контакт"*'
@@ -584,7 +588,10 @@ def add_admin(update: Update, context: CallbackContext):
              f"\n\nВаш ID: *{user_id}*"
              f"\nВаш номер телефону: *{update.message.contact.phone_number}*",
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard)
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
     )
 
     logger.info("Added new admin successfully. Admin ID: {}".format(user_id))
@@ -596,8 +603,11 @@ def cancel_register(update: Update, context: CallbackContext):
 
     update.message.reply_text(
         text="☑️ Реєстрацію скасовано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard)
-        )
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
     return ConversationHandler.END
 
 

@@ -14,6 +14,9 @@ import logging
 import configparser
 
 from pymongo import MongoClient
+from functools import wraps
+
+LIST_OF_ADMINS = []
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO
@@ -37,6 +40,21 @@ DRUG_INFO = {
     "code": "",
     "photo": b''
 }
+
+
+def restricted(func):
+    @wraps(func)
+    def wrapped(update, context, *args, **kwargs):
+        user_id = update.effective_user.id
+        if user_id not in LIST_OF_ADMINS:
+            update.message.reply_text(
+                "Unauthorized access denied for *{}*".format(user_id),
+                parse_mode='MarkdownV2',
+            )
+            logger.info("Unauthorized access denied for {}.".format(user_id))
+            return
+        return func(update, context, *args, **kwargs)
+    return wrapped
 
 
 def start_handler(update: Update, context: CallbackContext) -> None:
@@ -186,6 +204,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         os.remove("code.png")
 
 
+@restricted
 def start_adding(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     logger.info("User %s started adding process", user.first_name)

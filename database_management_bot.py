@@ -31,10 +31,10 @@ collection = db.TestBotCollection
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT = range(6)
 
 DRUG_INFO = {
-    "name": None,
-    "active_ingredient": None,
-    "description": None,
-    "code": None,
+    "name": "",
+    "active_ingredient": "",
+    "description": "",
+    "code": "",
     "photo": b''
 }
 
@@ -189,6 +189,13 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 def start_adding(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     logger.info("User %s started adding process", user.first_name)
+    logger.info("Clearing info: %s", DRUG_INFO)
+    DRUG_INFO["name"] = ""
+    DRUG_INFO["active_ingredient"] = ""
+    DRUG_INFO["description"] = ""
+    DRUG_INFO["code"] = ""
+    DRUG_INFO["photo"] = b''
+    logger.info("Cleared")
 
     reply_keyboard = [['Скасувати додавання']]
 
@@ -401,12 +408,6 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
-
-    logger.info("Clearing info: %s", DRUG_INFO)
-
-    for key in DRUG_INFO.keys():
-        DRUG_INFO[key] = None
-    logger.info("Cleared")
 
     return ConversationHandler.END
 

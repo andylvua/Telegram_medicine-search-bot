@@ -35,6 +35,9 @@ GOOGLE_SEARCH = "True"
 
 
 def start_handler(update: Update, context: CallbackContext) -> None:
+    global GOOGLE_SEARCH
+    GOOGLE_SEARCH = "True"
+
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 

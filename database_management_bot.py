@@ -2,7 +2,7 @@
 Author: Andrew Yaroshevych
 Version: 2.1.0
 """
-from telegram import ReplyKeyboardMarkup, Update
+from telegram import ReplyKeyboardMarkup, Update, KeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 from PIL import Image
@@ -29,9 +29,11 @@ config.read("config.ini")
 cluster = MongoClient(config['Database']['cluster'])
 db = cluster.TestBotDatabase
 collection = db.TestBotCollection
+admins_collection = db.Administrators
 
 # Conversation states
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT = range(6)
+CONTACT = range(1)
 
 DRUG_INFO = {
     "name": "",
@@ -46,12 +48,16 @@ def restricted(func):
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         user_id = update.effective_user.id
-        if user_id not in LIST_OF_ADMINS:
+        if admins_collection.count_documents({"user_id": user_id}) != 0:
+            logger.info("Admin is already registered")
+        else:
             update.message.reply_text(
-                "Unauthorized access denied for *{}*".format(user_id),
-                parse_mode='MarkdownV2',
-            )
-            logger.info("Unauthorized access denied for {}.".format(user_id))
+                    "❌ Ви не можете проводити операцій з базою даних\. \n\nВаш ID *{}* не зареєстровано "
+                    "як адміністратора"
+                    "\n\nАби зареєструватись, виконайте команду */authorize*".format(user_id),
+                    parse_mode='MarkdownV2',
+                )
+            logger.info("Unauthorized access denied for {}".format(user_id))
             return
         return func(update, context, *args, **kwargs)
     return wrapped
@@ -519,6 +525,69 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
     return ConversationHandler.END
 
 
+def register(update: Update, context: CallbackContext):
+    user = update.message.from_user
+    user_id = update.effective_user.id
+
+    logger.info("%s: Started authorization", user.first_name)
+
+    if admins_collection.count_documents({"user_id": user_id}) != 0:
+        logger.info("Admin is already registered, cancelling adding process")
+
+        reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
+        update.message.reply_text(
+            text="☑️ Ви вже пройшли авторизацію",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard)
+        )
+        return ConversationHandler.END
+
+    contact_button = KeyboardButton(text="Надіслати контакт", request_contact=True)
+    cancel_button = KeyboardButton(text="Скасувати реєстрацію")
+    custom_keyboard = [[contact_button, cancel_button]]
+    reply_markup = ReplyKeyboardMarkup(custom_keyboard)
+    update.message.reply_text(
+        text='🔐 Реєстрація потрібна для забеспечення безпеки та зменшення кількості спаму'
+             '\n\n✅ *Аби зареєструватись, оберіть опцію "Надіслати контакт"*'
+             '\n\n↩️ Якщо ви не бажаєте реєструватись, оберіть опцію "Скасувати реєстрацію"'
+             '\n❕ Зверніть увагу \- не пройшовши авторизацію ви *не зможете* вносити зміни до бази даних',
+        parse_mode="MarkdownV2",
+        reply_markup=reply_markup)
+
+    return CONTACT
+
+
+def add_admin(update: Update, context: CallbackContext):
+    logger.info("User send contact")
+
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
+    post_id = admins_collection.insert_one(update.message.contact.to_dict()).inserted_id
+    user_id = update.effective_user.id
+    user = update.message.from_user
+
+    update.message.reply_text(
+        text=f"✅ *{user.first_name}*, Вас успішно зареєстровано як адміністратора"
+             f"\n\nВаш ID: *{user_id}*"
+             f"\nВаш номер телефону: *{update.message.contact.phone_number}*",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard)
+    )
+
+    logger.info("Added new admin successfully. Admin ID: {}".format(user_id))
+    return ConversationHandler.END
+
+
+def cancel_register(update: Update, context: CallbackContext):
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
+    update.message.reply_text(
+        text="☑️ Реєстрацію скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard)
+        )
+    return ConversationHandler.END
+
+
 def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
@@ -559,6 +628,18 @@ def main() -> None:
                    CommandHandler("help", instructions_handler)]
     )
 
+    register_handler = ConversationHandler(
+        entry_points=[CommandHandler('authorize', register)],
+        states={
+            CONTACT: [
+                MessageHandler(Filters.contact & ~Filters.command, add_admin)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_register),
+                   MessageHandler(Filters.text("Скасувати реєстрацію"), cancel_register)]
+    )
+
+    dispatcher.add_handler(register_handler)
     dispatcher.add_handler(conv_handler)
     dispatcher.add_handler(start)
     dispatcher.add_handler(scan)

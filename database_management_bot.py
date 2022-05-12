@@ -50,9 +50,11 @@ def restricted(func):
         user_id = update.effective_user.id
         if blacklist.count_documents({"user_id": user_id}) != 0:
             logger.info("User banned")
+            blocked_user = blacklist.find_one({"user_id": user_id}, {"_id": 0})
 
             update.message.reply_text(
-                "❌ Вас заблоковано\. ID: *{}*".format(user_id) +
+                "❌ *Вас заблоковано\.* ID: *{}*".format(user_id) +
+                f"\n\n*Причина*: {blocked_user['reason']} "
                 "\n\nЯкщо Ви вважаєте, що це помилка \- зверніться до адміністратора бота",
                 parse_mode='MarkdownV2',
             )

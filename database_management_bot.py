@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.1.0
+Version: 2.3.0
 """
 from telegram import ReplyKeyboardMarkup, Update, KeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
@@ -16,8 +16,6 @@ import configparser
 from pymongo import MongoClient
 from functools import wraps
 
-LIST_OF_ADMINS = []
-
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO
 )
@@ -30,6 +28,7 @@ cluster = MongoClient(config['Database']['cluster'])
 db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 admins_collection = db.Administrators
+blacklist = db.Blacklist
 
 # Conversation states
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT = range(6)
@@ -40,7 +39,8 @@ DRUG_INFO = {
     "active_ingredient": "",
     "description": "",
     "code": "",
-    "photo": b''
+    "photo": b'',
+    "user_id": 0
 }
 
 
@@ -48,6 +48,15 @@ def restricted(func):
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         user_id = update.effective_user.id
+        if blacklist.count_documents({"user_id": user_id}) != 0:
+            logger.info("User banned")
+
+            update.message.reply_text(
+                "❌ Вас заблоковано\. ID: *{}*".format(user_id) +
+                "\n\nЯкщо Ви вважаєте, що це помилка \- зверніться до адміністратора бота",
+                parse_mode='MarkdownV2',
+            )
+            return
         if admins_collection.count_documents({"user_id": user_id}) != 0:
             logger.info("Admin is already registered")
         else:
@@ -220,6 +229,7 @@ def start_adding(update: Update, context: CallbackContext) -> int:
     DRUG_INFO["description"] = ""
     DRUG_INFO["code"] = ""
     DRUG_INFO["photo"] = b''
+    DRUG_INFO["user_id"] = 0
     logger.info("Cleared")
 
     reply_keyboard = [['Скасувати додавання']]
@@ -417,6 +427,9 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
     if update.message.text == 'Так, додати до бази даних':
+        user_id = update.effective_user.id
+        DRUG_INFO["user_id"] = user_id
+
         post_id = collection.insert_one(DRUG_INFO).inserted_id
         logger.info("Checked info. Added successfully")
         update.message.reply_text(

@@ -342,7 +342,9 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
         logger.info("Name is not correct, asking to retry", update.message.text)
 
         update.message.reply_text(
-            text='Вкажіть, будь ласка, корректну назву',
+            text='*Вкажіть, будь ласка, корректну назву*'
+                 f'\n\nПоточна назва "{name}" містить тільки цифри',
+            parse_mode="MarkdownV2",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder="Повторіть ввід"),
@@ -374,7 +376,9 @@ def get_about(update: Update, context: CallbackContext) -> int:
         logger.info("Active ingredient is not correct, asking to retry", update.message.text)
 
         update.message.reply_text(
-            text='Вкажіть, будь ласка, корректну назву діючої речовини',
+            text='*Вкажіть, будь ласка, корректну назву діючої речовини*'
+                 f'\n\nПоточна назва діючої речовини "{active_ingredient}" містить тільки цифри',
+            parse_mode="MarkdownV2",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder="Повторіть ввід"),
@@ -621,10 +625,11 @@ def add_admin(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     user = update.message.from_user
 
+    phone_number_markdown = update.message.contact.phone_number.replace('+', '\+')
     update.message.reply_text(
         text=f"✅ *{user.first_name}*, Вас успішно зареєстровано як адміністратора"
              f"\n\nВаш ID: *{user_id}*"
-             f"\nВаш номер телефону: *{update.message.contact.phone_number}*",
+             f"\nВаш номер телефону: *{phone_number_markdown}*",
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          one_time_keyboard=True,

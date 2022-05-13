@@ -5,3 +5,7 @@ requests~=2.27.1
 bs4~=0.0.1
 beautifulsoup4==4.11.1
 pymongo~=4.1.1
+polyglot~=16.7.4
+PyICU==2.9
+pycld2==0.41
+Morfessor==2.0.6

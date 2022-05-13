@@ -138,8 +138,14 @@ def retrieve_db_query(code_str) -> str or None:
 
 def retrieve_db_photo(code_str) -> Image or None:
     try:
-        logger.info("Database quired. Retrieving photo")
         query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        logger.info("Database quired")
+
+        if query_result['photo'] == b'':
+            logger.info("Field 'photo' is empty")
+            return
+
+        logger.info("Retrieving photo")
         img = Image.open(io.BytesIO(query_result['photo']))
         return img
     except Exception as e:
@@ -171,7 +177,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         reply_keyboard = [['Завершити сканування']]
         reply_keyboard2 = [['Так', 'Ні']]
 
-        if db_check_availability(code_str):
+        if db_check_availability(code_str) and retrieve_db_photo(code_str) is not None:
             logger.info("The barcode is present in the database")
             img = retrieve_db_photo(code_str)
             img.save("retrieved_image.jpg")
@@ -189,6 +195,20 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
             )
 
             os.remove("retrieved_image.jpg")
+        elif db_check_availability(code_str):
+            logger.info("The barcode is present in the database but photo is missing")
+
+            update.message.reply_text(
+                parse_mode='HTML',
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Продовжуйте'),
+                text='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
+                     ' наявний у моїй базі даних:\n\n' +
+                     retrieve_db_query(code_str) +
+                     '\n\n⚠️ Фото відсутнє',
+                quote=True
+            )
         else:
             logger.info("The barcode is missing from the database. Asking to add info")
 
@@ -220,7 +240,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                                              input_field_placeholder='Оберіть опцію')
         )
     finally:
-        logger.info("Operation ended. Deleting photo")
+        logger.info("Operation ended. Deleting barcode image")
         os.remove("code.png")
 
 
@@ -228,14 +248,6 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 def start_adding(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     logger.info("User %s started adding process", user.first_name)
-    logger.info("Clearing info: %s", DRUG_INFO)
-    DRUG_INFO["name"] = ""
-    DRUG_INFO["active_ingredient"] = ""
-    DRUG_INFO["description"] = ""
-    DRUG_INFO["code"] = ""
-    DRUG_INFO["photo"] = b''
-    DRUG_INFO["user_id"] = 0
-    logger.info("Cleared")
 
     reply_keyboard = [['Скасувати додавання']]
 
@@ -403,7 +415,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     logger.info("Entered description: %s. Asking for a photo", update.message.text)
 
     user = update.message.from_user
-    reply_keyboard = [['Скасувати додавання']]
+    reply_keyboard = [['Скасувати додавання', 'Пропустити']]
 
     description = update.message.text
     if validators.check_description(description) != description:
@@ -421,11 +433,16 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     DRUG_INFO["description"] = description
 
     update.message.reply_text(
-        text='Також, надішліть фото передньої сторони упаковки медикаменту',
+        text='Також, надішліть фото передньої сторони упаковки медикаменту.'
+             '\n\n(Не рекомендується) Натисніть "Пропустити", якщо не хочете додавати фото',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                          resize_keyboard=True,
                                          input_field_placeholder="Надішліть фото")
     )
+    return CHECK
+
+
+def skip_photo(update: Update, context: CallbackContext) -> int:
     return CHECK
 
 
@@ -434,33 +451,43 @@ def check_info(update: Update, context: CallbackContext) -> int:
 
     user = update.message.from_user
 
-    id_img = update.message.photo[-1].file_id
-    photo = context.bot.getFile(id_img)
-    photo.download('photo.jpg')
-
-    img = Image.open("photo.jpg")
-    image_bytes = io.BytesIO()
-    img.save(image_bytes, format='JPEG')
-
-    DRUG_INFO["photo"] = image_bytes.getvalue()
-
     output = f"<b>Назва</b>: {DRUG_INFO['name']} " \
              f"\n<b>Діюча речовина</b>: {DRUG_INFO['active_ingredient']} " \
              f"\n<b>Опис</b>: {DRUG_INFO['description']} "
 
     reply_keyboard = [['Так, додати до бази даних', 'Ні, скасувати']]
 
-    update.message.reply_photo(
-        open("photo.jpg", 'rb'),
-        caption='<b>Введена інформація:</b>\n\n' + output +
-                '\n\n❓Ви точно бажаєте додати її до бази даних?',
-        parse_mode='HTML',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder="Оберіть опцію")
-    )
-    os.remove("photo.jpg")
+    if update.message.photo:
+        id_img = update.message.photo[-1].file_id
+        photo = context.bot.getFile(id_img)
+        photo.download('photo.jpg')
 
+        img = Image.open("photo.jpg")
+        image_bytes = io.BytesIO()
+        img.save(image_bytes, format='JPEG')
+
+        DRUG_INFO["photo"] = image_bytes.getvalue()
+
+        update.message.reply_photo(
+            open("photo.jpg", 'rb'),
+            caption='<b>Введена інформація:</b>\n\n' + output +
+                    '\n\n❓Ви точно бажаєте додати її до бази даних?',
+            parse_mode='HTML',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію")
+        )
+        os.remove("photo.jpg")
+    else:
+        update.message.reply_text(
+            text='<b>Введена інформація:</b>\n\n' +
+                 '⚠️ Фото відсутнє\n' + output +
+                 '\n\n❓Ви точно бажаєте додати її до бази даних?',
+            parse_mode='HTML',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію")
+        )
     return INSERT
 
 
@@ -489,6 +516,15 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
+
+    logger.info("Clearing info: %s", DRUG_INFO)
+    DRUG_INFO["name"] = ""
+    DRUG_INFO["active_ingredient"] = ""
+    DRUG_INFO["description"] = ""
+    DRUG_INFO["code"] = ""
+    DRUG_INFO["photo"] = b''
+    DRUG_INFO["user_id"] = 0
+    logger.info("Cleared")
 
     return ConversationHandler.END
 
@@ -666,7 +702,7 @@ def main() -> None:
                               main_keyboard_handler)
     instructions = MessageHandler(Filters.regex('^(Інструкції|/help)$'), instructions_handler)
 
-    conv_handler = ConversationHandler(
+    add_handler = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex('^(Так|Додати новий медикамент|/add)$'), start_adding)],
         states={
             NAME: [
@@ -681,9 +717,13 @@ def main() -> None:
             ],
             PHOTO: [
                 MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"), get_photo),
+                MessageHandler(Filters.regex('^(Пропустити)$')
+                               & ~Filters.command & ~Filters.text("Скасувати додавання"), skip_photo)
             ],
             CHECK: [
-                MessageHandler(Filters.photo & ~Filters.command & ~Filters.text("Скасувати додавання"), check_info)
+                MessageHandler(Filters.photo & ~Filters.command & ~Filters.text("Скасувати додавання"), check_info),
+                MessageHandler(Filters.regex('^(Пропустити)$')
+                               & ~Filters.command & ~Filters.text("Скасувати додавання"), check_info)
             ],
             INSERT: [
                 MessageHandler(Filters.text & ~Filters.text("Скасувати додавання"), insert_to_db)
@@ -706,7 +746,7 @@ def main() -> None:
     )
 
     dispatcher.add_handler(register_handler)
-    dispatcher.add_handler(conv_handler)
+    dispatcher.add_handler(add_handler)
     dispatcher.add_handler(start)
     dispatcher.add_handler(scan)
     dispatcher.add_handler(decoder)

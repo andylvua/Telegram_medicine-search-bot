@@ -12,9 +12,11 @@ import os
 import io
 import logging
 import configparser
+from functools import wraps
 
 from pymongo import MongoClient
-from functools import wraps
+
+import validators
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO
@@ -336,6 +338,17 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати додавання']]
 
     name = update.message.text
+    if validators.check_name(name) is None:
+        logger.info("Name is not correct, asking to retry", update.message.text)
+
+        update.message.reply_text(
+            text='Вкажіть, будь ласка, корректну назву',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Повторіть ввід"),
+        )
+        return INGREDIENT
+
     DRUG_INFO["name"] = name
 
     logger.info("Asking for an active ingredient")
@@ -357,6 +370,17 @@ def get_about(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати додавання']]
 
     active_ingredient = update.message.text
+    if validators.check_active_ingredient(active_ingredient) is None:
+        logger.info("Active ingredient is not correct, asking to retry", update.message.text)
+
+        update.message.reply_text(
+            text='Вкажіть, будь ласка, корректну назву діючої речовини',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Повторіть ввід"),
+        )
+        return ABOUT
+
     DRUG_INFO["active_ingredient"] = active_ingredient
 
     logger.info("Asking for a description")
@@ -378,6 +402,18 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати додавання']]
 
     description = update.message.text
+    if validators.check_description(description) != description:
+        logger.info("Description is not correct, asking to retry", update.message.text)
+
+        update.message.reply_text(
+            text=f'Вкажіть, будь ласка, опис українською мовою'
+                 f'\n\nПоточна мова: {validators.check_description(description)}',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Повторіть ввід"),
+        )
+        return PHOTO
+
     DRUG_INFO["description"] = description
 
     update.message.reply_text(

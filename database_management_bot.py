@@ -35,6 +35,7 @@ blacklist = db.Blacklist
 # Conversation states
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
 CONTACT = range(1)
+REPORT = range(1)
 
 DRUG_INFO = {
     "name": "",
@@ -174,7 +175,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         code_str = result[0].data.decode("utf-8")
         DRUG_INFO["code"] = code_str
 
-        reply_keyboard = [['Завершити сканування']]
+        reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
         reply_keyboard2 = [['Так', 'Ні']]
 
         if db_check_availability(code_str) and retrieve_db_photo(code_str) is not None:
@@ -758,6 +759,56 @@ def cancel_register(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
+def start_report(update: Update, context: CallbackContext):
+    reply_keyboard = [['Скасувати']]
+    if DRUG_INFO["code"] == "":
+        update.message.reply_text(
+            text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
+        )
+        scan_handler(update=update, context=context)
+        return ConversationHandler.END
+    
+    update.message.reply_text(
+        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{DRUG_INFO['code']}__*"
+             "\n\nНадішліть, будь ласка, короткий опис проблеми",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Опис проблеми')
+    )
+    return REPORT
+
+
+def add_report_description(update: Update, context: CallbackContext):
+    report_description = update.message.text
+    logger.info("User reported: %s", report_description)
+
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
+    update.message.reply_text(
+            text="✅️ Дякуємо. Ви успішно повідомили про проблему",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+            )
+    return ConversationHandler.END
+
+
+def cancel_report(update: Update, context: CallbackContext):
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+
+    update.message.reply_text(
+        text="☑️ Операцію скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return ConversationHandler.END
+
+
 def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
@@ -821,7 +872,19 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати реєстрацію"), cancel_register)]
     )
 
+    report_handler = ConversationHandler(
+        entry_points=[MessageHandler(Filters.text("Повідомити про проблему"), start_report)],
+        states={
+            REPORT: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), add_report_description)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_report),
+                   MessageHandler(Filters.text("Скасувати"), cancel_report)]
+    )
+
     dispatcher.add_handler(register_handler)
+    dispatcher.add_handler(report_handler)
     dispatcher.add_handler(add_handler)
     dispatcher.add_handler(start)
     dispatcher.add_handler(scan)

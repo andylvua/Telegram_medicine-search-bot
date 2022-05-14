@@ -33,7 +33,7 @@ admins_collection = db.Administrators
 blacklist = db.Blacklist
 
 # Conversation states
-NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT = range(6)
+NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
 CONTACT = range(1)
 
 DRUG_INFO = {
@@ -455,7 +455,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
              f"\n<b>Діюча речовина</b>: {DRUG_INFO['active_ingredient']} " \
              f"\n<b>Опис</b>: {DRUG_INFO['description']} "
 
-    reply_keyboard = [['Так, додати до бази даних', 'Ні, скасувати']]
+    reply_keyboard = [['Так, додати до бази даних', 'Змінити інформацію', 'Ні, скасувати']]
 
     if update.message.photo:
         id_img = update.message.photo[-1].file_id
@@ -478,7 +478,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
         os.remove("photo.jpg")
-    else:
+    elif update.message.text and DRUG_INFO["photo"] == b'':
         update.message.reply_text(
             text='<b>Введена інформація:</b>\n\n' +
                  '⚠️ Фото відсутнє\n' + output +
@@ -488,6 +488,20 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
+    else:
+        img = Image.open(io.BytesIO(DRUG_INFO['photo']))
+        img.save("photo.jpg")
+
+        update.message.reply_photo(
+            open("photo.jpg", 'rb'),
+            caption='<b>Введена інформація:</b>\n\n' + output +
+                    '\n\n❓Ви точно бажаєте додати її до бази даних?',
+            parse_mode='HTML',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію")
+        )
+        os.remove("photo.jpg")
     return INSERT
 
 
@@ -508,6 +522,26 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
+
+        logger.info("Clearing info: %s", DRUG_INFO)
+        DRUG_INFO["name"] = ""
+        DRUG_INFO["active_ingredient"] = ""
+        DRUG_INFO["description"] = ""
+        DRUG_INFO["code"] = ""
+        DRUG_INFO["photo"] = b''
+        DRUG_INFO["user_id"] = 0
+        logger.info("Cleared")
+
+    elif update.message.text == 'Змінити інформацію':
+        reply_keyboard_change = [['Назва', 'Діюча речовина', 'Опис']]
+        update.message.reply_text(
+            text='Гаразд, яке поле ви хочете змінити?',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard_change, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію")
+        )
+        return CHANGE_INFO
+
     else:
         logger.info("User %s canceled adding process", user.first_name)
         update.message.reply_text(
@@ -517,16 +551,50 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
 
-    logger.info("Clearing info: %s", DRUG_INFO)
-    DRUG_INFO["name"] = ""
-    DRUG_INFO["active_ingredient"] = ""
-    DRUG_INFO["description"] = ""
-    DRUG_INFO["code"] = ""
-    DRUG_INFO["photo"] = b''
-    DRUG_INFO["user_id"] = 0
-    logger.info("Cleared")
-
     return ConversationHandler.END
+
+
+def change_info(update: Update, context: CallbackContext):
+    reply_keyboard = [['Скасувати додавання']]
+
+    if update.message.text == 'Назва':
+        context.user_data["change"] = "name"
+        update.message.reply_text(
+            text='Добре, надішліть нову назву',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію")
+        )
+    if update.message.text == 'Діюча речовина':
+        context.user_data["change"] = "active_ingredient"
+        update.message.reply_text(
+            text='Добре, надішліть нову назву діючої речовини',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію")
+        )
+    if update.message.text == 'Опис':
+        context.user_data["change"] = "description"
+        update.message.reply_text(
+            text='Добре, надішліть новий опис',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder="Оберіть опцію")
+        )
+
+    return REWRITE
+
+
+def rewrite(update: Update, context: CallbackContext):
+    if context.user_data["change"] == "name":
+        DRUG_INFO["name"] = update.message.text
+        return check_info(update=update, context=context)
+    if context.user_data["change"] == "active_ingredient":
+        DRUG_INFO["active_ingredient"] = update.message.text
+        return check_info(update=update, context=context)
+    if context.user_data["change"] == "description":
+        DRUG_INFO["description"] = update.message.text
+        return check_info(update=update, context=context)
 
 
 def cancel(update: Update, context: CallbackContext) -> int:
@@ -727,7 +795,15 @@ def main() -> None:
             ],
             INSERT: [
                 MessageHandler(Filters.text & ~Filters.text("Скасувати додавання"), insert_to_db)
-            ]
+            ],
+            CHANGE_INFO: [
+                MessageHandler(Filters.regex('^(Назва|Діюча речовина|Опис)$') & ~Filters.text("Скасувати додавання"),
+                               change_info)
+            ],
+            REWRITE: [
+                MessageHandler(Filters.text & ~Filters.text("Скасувати додавання"),
+                               rewrite)
+            ],
         },
         fallbacks=[CommandHandler('cancel', cancel),
                    MessageHandler(Filters.text("Скасувати додавання"), cancel),

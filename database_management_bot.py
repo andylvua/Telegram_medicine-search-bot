@@ -1,7 +1,9 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.3.0
+Version: 2.5.0
 """
+import re
+
 from telegram import ReplyKeyboardMarkup, Update, KeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
@@ -793,10 +795,11 @@ def add_report_description(update: Update, context: CallbackContext):
 
     document = collection.find_one({"code": DRUG_INFO["code"]})
     if "report" in document:
+        number = int(re.search('\[.*?]', document["report"].split(',')[-1]).group(0).strip("[]"))
         collection.update_one({"code": DRUG_INFO["code"]},
-                              {"$set": {"report": document["report"] + ", " + report_description}})
+                              {"$set": {"report": document["report"] + f",\n[{number + 1}]: " + report_description}})
     else:
-        collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": report_description}})
+        collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": "[1]: " + report_description}})
 
     update.message.reply_text(
             text="✅️ Дякуємо. Ви успішно повідомили про проблему",

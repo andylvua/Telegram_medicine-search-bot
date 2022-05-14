@@ -767,6 +767,11 @@ def start_report(update: Update, context: CallbackContext):
         )
         scan_handler(update=update, context=context)
         return ConversationHandler.END
+    if db_check_availability(DRUG_INFO["code"]) is False:
+        update.message.reply_text(
+            text="⚠️️️ Ви не можете повідомити про штрих-код, що відсутній у базі баних"
+        )
+        return cancel_report(update=update, context=context)
 
     update.message.reply_text(
         text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{DRUG_INFO['code']}__*"

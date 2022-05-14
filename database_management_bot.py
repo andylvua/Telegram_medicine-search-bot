@@ -786,6 +786,8 @@ def add_report_description(update: Update, context: CallbackContext):
 
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
+    collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": report_description}})
+
     update.message.reply_text(
             text="✅️ Дякуємо. Ви успішно повідомили про проблему",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,

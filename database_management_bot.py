@@ -815,7 +815,7 @@ def cancel_report(update: Update, context: CallbackContext):
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
     update.message.reply_text(
-        text="☑️ Операцію скасовано",
+        text="☑️ Відгук скасовано",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          one_time_keyboard=True,
                                          resize_keyboard=True,
@@ -824,12 +824,24 @@ def cancel_report(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
+def cancel_default(update: Update, context: CallbackContext):
+    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    update.message.reply_text(
+        text="ℹ️️ Усі операції скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+
+
 def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
 
     scan = MessageHandler(Filters.regex('^(Перевірити наявність|/scan|Ще раз)$'), scan_handler)
     start = CommandHandler('start', start_handler)
+    cancel_echo = CommandHandler('cancel', cancel_default)
     decoder = MessageHandler(Filters.photo, retrieve_scan_results)
     not_file = MessageHandler(Filters.attachment, file_warning)
     end_scan = MessageHandler(Filters.regex('^(Завершити сканування|Відмінити сканування|Зрозуміло!|Ні)$'),
@@ -907,6 +919,7 @@ def main() -> None:
     dispatcher.add_handler(not_file)
     dispatcher.add_handler(end_scan)
     dispatcher.add_handler(instructions)
+    dispatcher.add_handler(cancel_echo)
 
     updater.start_polling()
     updater.idle()

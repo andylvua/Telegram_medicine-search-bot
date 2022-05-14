@@ -767,7 +767,7 @@ def start_report(update: Update, context: CallbackContext):
         )
         scan_handler(update=update, context=context)
         return ConversationHandler.END
-    
+
     update.message.reply_text(
         text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{DRUG_INFO['code']}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
@@ -786,7 +786,12 @@ def add_report_description(update: Update, context: CallbackContext):
 
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
-    collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": report_description}})
+    document = collection.find_one({"code": DRUG_INFO["code"]})
+    if "report" in document:
+        collection.update_one({"code": DRUG_INFO["code"]},
+                              {"$set": {"report": document["report"] + ", " + report_description}})
+    else:
+        collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": report_description}})
 
     update.message.reply_text(
             text="✅️ Дякуємо. Ви успішно повідомили про проблему",

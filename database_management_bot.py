@@ -878,7 +878,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
 
             msg = EmailMessage()
 
-            msg['Subject'] = "User response"
+            msg['Subject'] = "User response for MSB DB Management Bot"
             msg['From'] = address
             msg['To'] = address
 
@@ -898,7 +898,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300&display=swap" rel="stylesheet">
                 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200&display=swap" rel="stylesheet">
                 
-                <body style="background-image: url('https://www.linkpicture.com/q/email_background.jpg');">
+                <body style="background-image: linear-gradient(160deg, #0d1d1b, #041421);">
                 <h1 style="color: #ffffff; font-family: 'Nunito', sans-serif; text-align: center; padding-top: 20px;">
                     User Response
                 </h1>
@@ -949,6 +949,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
+
     return ConversationHandler.END
 
 

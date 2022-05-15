@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.1.0
+Version: 2.2.0
 """
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \

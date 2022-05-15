@@ -9,10 +9,12 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Conve
 
 from PIL import Image
 from pyzbar.pyzbar import decode
+from email.message import EmailMessage
 
 import os
 import io
 import logging
+import smtplib
 import configparser
 from functools import wraps
 
@@ -39,6 +41,7 @@ blacklist = db.Blacklist
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
 CONTACT = 1
 REPORT = 1
+REVIEW = 1
 
 DRUG_INFO = {
     "name": "",
@@ -48,6 +51,8 @@ DRUG_INFO = {
     "photo": b'',
     "user_id": 0
 }
+
+MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
 
 def restricted(func):
@@ -85,7 +90,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
         '*Привіт\! Я бот для адміністування бази даних Telegram MSB\.*'
@@ -509,10 +514,10 @@ def check_info(update: Update, context: CallbackContext) -> int:
     return INSERT
 
 
-def insert_to_db(update: Update, context: CallbackContext) -> int | ConversationHandler.END:
+def insert_to_db(update: Update, context: CallbackContext) -> int or ConversationHandler.END:
     user = update.message.from_user
 
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     if update.message.text == 'Так, додати до бази даних':
         user_id = update.effective_user.id
@@ -603,7 +608,7 @@ def rewrite(update: Update, context: CallbackContext) -> check_info:
 
 def cancel(update: Update, context: CallbackContext) -> ConversationHandler.END:
     user = update.message.from_user
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     logger.info("User %s canceled the adding process", user.first_name)
     update.message.reply_text(
@@ -636,7 +641,7 @@ def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     if update.message.text not in ["Зрозуміло!", "Ні"]:
         update.message.reply_text(
@@ -665,8 +670,7 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
         open(pic, 'rb'),
         caption='🔍 Щоб перевірити наявність штрих\-коду у базі даних \- надішліть мені фото '
                 'пакування, де я можу *чітко* побачити штрихкод\.'
-                '\n\n✏️ Зверніть увагу, ви можете надсилати одразу декілька фотографій\.'
-                '\n\n✅ Після сканування ви можете надсилати фото далі\. '
+                '\n\n✏️ Ви можете надсилати одразу декілька фотографій\.'
                 '\n\n❗️ Аби додати новий медикамент до бази даних, оберіть опцію '
                 '"Додати новий медикамент", або скористайтесь командою */add*'
                 '\n\nТакож, операція додавання може бути виконана'
@@ -677,6 +681,8 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
                 '\n\n*Опис має містити:*'
                 '\n*1\.* Основне застосування препарату \(показання до застосування\)'
                 '\n*2\.* Протипоказання, якщо такі існують'
+                '\n\n📩 Надіслати нам відгук можна обравши опцію "Надіслати відгук" із головного меню,'
+                'або скориставшись командою */review*'
                 '\n\n ↩️ Відмінити будь\-яку дію можна командою */cancel*'
                 '\n\n 💬 Ви можете викликати це повідомлення у будь\-який момент, '
                 'надіславши команду */help*',
@@ -698,7 +704,7 @@ def register(update: Update, context: CallbackContext) -> int:
     if admins_collection.count_documents({"user_id": user_id}) != 0:
         logger.info("Admin is already registered, cancelling adding process")
 
-        reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+        reply_keyboard = MAIN_REPLY_KEYBOARD
 
         update.message.reply_text(
             text="☑️ Ви вже пройшли авторизацію",
@@ -727,7 +733,7 @@ def register(update: Update, context: CallbackContext) -> int:
 def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.END:
     logger.info("User send contact")
 
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     post_id = admins_collection.insert_one(update.message.contact.to_dict()).inserted_id
     user_id = update.effective_user.id
@@ -750,7 +756,7 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
 
 
 def cancel_register(update: Update, context: CallbackContext):
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
         text="☑️ Реєстрацію скасовано",
@@ -792,7 +798,7 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     report_description = update.message.text
     logger.info("User reported: %s", report_description)
 
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     document = collection.find_one({"code": DRUG_INFO["code"]})
     if "report" in document:
@@ -813,7 +819,7 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
 
 
 def cancel_report(update: Update, context: CallbackContext) -> ConversationHandler.END:
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
         text="☑️ Відгук скасовано",
@@ -826,7 +832,7 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
 
 
 def cancel_default(update: Update, context: CallbackContext) -> None:
-    reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
     update.message.reply_text(
         text="ℹ️️ Усі операції скасовано",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -834,6 +840,76 @@ def cancel_default(update: Update, context: CallbackContext) -> None:
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію')
     )
+
+
+def start_review(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Скасувати']]
+
+    update.message.reply_text(
+        text=f"💌 *Ваш відгук буде надіслано команді розробників*"
+             "\n\nНапишіть, будь ласка, свій відгук",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Відгук')
+    )
+    return REVIEW
+
+
+def send_review(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    review_msg = update.message.text
+    user = update.message.from_user
+
+    logger.info("User reviewed: %s", review_msg)
+
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
+
+            address = config['Mail']['address']
+            password = config['Mail']['password']
+
+            smtp.login(address, password)
+
+            msg = EmailMessage()
+
+            msg['Subject'] = "User response"
+            msg['From'] = address
+            msg['To'] = address
+
+            user_data = f"<br><br>-----------------------------<br>" \
+                        f"<b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
+            content = review_msg + user_data
+            msg.set_content(content, subtype='html')
+
+            smtp.send_message(msg)
+
+        update.message.reply_text(
+                text="*Щиро дякуємо* ❤️ "
+                     "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
+                parse_mode="MarkdownV2",
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Оберіть опцію')
+                )
+    except Exception as e:
+        logger.warning(e)
+        update.message.reply_text(
+            text="*Упс\.\.\. Щось пішло не так* 😞️"
+                 "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота\.",
+            parse_mode="MarkdownV2",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+    return ConversationHandler.END
 
 
 def main() -> None:
@@ -911,8 +987,20 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
+    review_handler = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex('^(Надіслати відгук|/review)$'), start_review)],
+        states={
+            REVIEW: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), send_review)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_report),
+                   MessageHandler(Filters.text("Скасувати"), cancel_report)]
+    )
+
     dispatcher.add_handler(register_handler)
     dispatcher.add_handler(report_handler)
+    dispatcher.add_handler(review_handler)
     dispatcher.add_handler(add_handler)
     dispatcher.add_handler(start)
     dispatcher.add_handler(scan)

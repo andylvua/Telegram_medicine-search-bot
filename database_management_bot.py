@@ -796,7 +796,7 @@ def add_report_description(update: Update, context: CallbackContext):
 
     document = collection.find_one({"code": DRUG_INFO["code"]})
     if "report" in document:
-        number = int(re.search('\[.*?]', document["report"].split(',')[-1]).group(0).strip("[]"))
+        number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": DRUG_INFO["code"]},
                               {"$set": {"report": document["report"] + f",\n[{number + 1}]: " + report_description}})
     else:

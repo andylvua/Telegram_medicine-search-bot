@@ -37,8 +37,8 @@ blacklist = db.Blacklist
 
 # Conversation states
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
-CONTACT = range(1)
-REPORT = range(1)
+CONTACT = 1
+REPORT = 1
 
 DRUG_INFO = {
     "name": "",
@@ -509,7 +509,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
     return INSERT
 
 
-def insert_to_db(update: Update, context: CallbackContext) -> int:
+def insert_to_db(update: Update, context: CallbackContext) -> int | ConversationHandler.END:
     user = update.message.from_user
 
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
@@ -558,7 +558,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int:
     return ConversationHandler.END
 
 
-def change_info(update: Update, context: CallbackContext):
+def change_info(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати додавання']]
 
     if update.message.text == 'Назва':
@@ -589,7 +589,7 @@ def change_info(update: Update, context: CallbackContext):
     return REWRITE
 
 
-def rewrite(update: Update, context: CallbackContext):
+def rewrite(update: Update, context: CallbackContext) -> check_info:
     if context.user_data["change"] == "name":
         DRUG_INFO["name"] = update.message.text
         return check_info(update=update, context=context)
@@ -601,7 +601,7 @@ def rewrite(update: Update, context: CallbackContext):
         return check_info(update=update, context=context)
 
 
-def cancel(update: Update, context: CallbackContext) -> int:
+def cancel(update: Update, context: CallbackContext) -> ConversationHandler.END:
     user = update.message.from_user
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
@@ -654,7 +654,7 @@ def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
         )
 
 
-def instructions_handler(update: Update, context: CallbackContext) -> None:
+def instructions_handler(update: Update, context: CallbackContext) -> ConversationHandler.END:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -689,7 +689,7 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
     return ConversationHandler.END
 
 
-def register(update: Update, context: CallbackContext):
+def register(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     user_id = update.effective_user.id
 
@@ -724,7 +724,7 @@ def register(update: Update, context: CallbackContext):
     return CONTACT
 
 
-def add_admin(update: Update, context: CallbackContext):
+def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.END:
     logger.info("User send contact")
 
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
@@ -762,7 +762,7 @@ def cancel_register(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
-def start_report(update: Update, context: CallbackContext):
+def start_report(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
     if DRUG_INFO["code"] == "":
         update.message.reply_text(
@@ -788,7 +788,7 @@ def start_report(update: Update, context: CallbackContext):
     return REPORT
 
 
-def add_report_description(update: Update, context: CallbackContext):
+def add_report_description(update: Update, context: CallbackContext) -> ConversationHandler.END:
     report_description = update.message.text
     logger.info("User reported: %s", report_description)
 
@@ -812,7 +812,7 @@ def add_report_description(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
-def cancel_report(update: Update, context: CallbackContext):
+def cancel_report(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
 
     update.message.reply_text(
@@ -825,7 +825,7 @@ def cancel_report(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
-def cancel_default(update: Update, context: CallbackContext):
+def cancel_default(update: Update, context: CallbackContext) -> None:
     reply_keyboard = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції']]
     update.message.reply_text(
         text="ℹ️️ Усі операції скасовано",

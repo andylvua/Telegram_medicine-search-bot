@@ -809,12 +809,12 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
         collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": "[1]: " + report_description}})
 
     update.message.reply_text(
-            text="✅️ Дякуємо. Ви успішно повідомили про проблему",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
-            )
+        text="✅️ Дякуємо. Ви успішно повідомили про проблему",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
     return ConversationHandler.END
 
 
@@ -882,22 +882,62 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
             msg['From'] = address
             msg['To'] = address
 
-            user_data = f"<br><br>-----------------------------<br>" \
-                        f"<b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
-            content = review_msg + user_data
-            msg.set_content(content, subtype='html')
+            user_data = f"<br><br><br><b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
+            message = review_msg + user_data
 
+            content = \
+                f"""<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>User Response</title>
+                </head>
+                
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200&display=swap" rel="stylesheet">
+                
+                <body style="background-image: url('https://www.linkpicture.com/q/email_background.jpg');">
+                <h1 style="color: #ffffff; font-family: 'Nunito', sans-serif; text-align: center; padding-top: 20px;">
+                    User Response
+                </h1>
+                
+                <p style="color: #ffffff; font-family: 'Nunito', sans-serif; font-size:120%; padding: 10px 50px;">
+                    {message}
+                </p>
+                
+                <div style="position:fixed;
+                            left:0;
+                            bottom:0;
+                            height:70px;
+                            width:100%;
+                            border-top: 1px solid #ffffff;
+                            ">
+                <p align="center"><a style="text-decoration: none;
+                                            margin-bottom: 0px;
+                                            color: #ffffff;
+                                            font-family: 'Nunito', sans-serif;" 
+                                            href="https://t.me/medicine_search_bot">
+                                            <img style="max-width: 40px;" 
+                                                        src="https://www.linkpicture.com/q/MSB_Logo_transparent.png" 
+                                                        alt="Logo"></a></p>
+                </div>
+                </body>
+                </html>"""
+
+            msg.set_content(content, subtype='html')
             smtp.send_message(msg)
 
         update.message.reply_text(
-                text="*Щиро дякуємо* ❤️ "
-                     "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
-                parse_mode="MarkdownV2",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
-                )
+            text="*Щиро дякуємо* ❤️ "
+                 "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
+            parse_mode="MarkdownV2",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
     except Exception as e:
         logger.warning(e)
         update.message.reply_text(

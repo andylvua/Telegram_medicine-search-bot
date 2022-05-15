@@ -3,13 +3,16 @@ Author: Andrew Yaroshevych
 Version: 2.1.0
 """
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler
+from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
+    ConversationHandler
 
 from PIL import Image
 from pyzbar.pyzbar import decode
+from email.message import EmailMessage
 
 import os
 import logging
+import smtplib
 import configparser
 
 import requests
@@ -33,6 +36,9 @@ collection = db.TestBotCollection
 
 GOOGLE_SEARCH = "True"
 
+# Conversation states
+REVIEW = 1
+
 
 def start_handler(update: Update, context: CallbackContext) -> None:
     global GOOGLE_SEARCH
@@ -41,7 +47,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування', 'Про мене']]
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування'], ['Про мене', 'Надіслати відгук']]
 
     update.message.reply_text(
         '🇺🇦 '
@@ -51,7 +57,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
         '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Оберіть опцію'
+            reply_keyboard, resize_keyboard=True, input_field_placeholder='Оберіть опцію'
         ),
     )
 
@@ -79,7 +85,7 @@ def end_scan_handler(update: Update, context: CallbackContext) -> None:
 
     update.message.reply_text(
         '☑️ Сканування завершено',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію'),
     )
@@ -234,7 +240,7 @@ def undefined_input(update: Update, context: CallbackContext) -> None:
 
     update.message.reply_text(
         'Я вас не розумію 🧐.\nОберіть, будь ласка, одну з доступних опцій',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію'),
     )
 
@@ -248,7 +254,7 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(
         '☑️ Гаразд, операцію скасовано',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію'),
     )
 
@@ -331,6 +337,129 @@ def google_search_set(update: Update, context: CallbackContext) -> None:
                             parse_mode="MarkdownV2")
 
 
+def start_review(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Скасувати']]
+
+    update.message.reply_text(
+        text=f"💌 *Ваш відгук буде надіслано команді розробників*"
+             "\n\nНапишіть, будь ласка, свій відгук",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Відгук')
+    )
+    return REVIEW
+
+
+def send_review(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    review_msg = update.message.text
+    user = update.message.from_user
+
+    logger.info("User reviewed: %s", review_msg)
+
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
+
+    try:
+        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
+
+            address = config['Mail']['address']
+            password = config['Mail']['password']
+
+            smtp.login(address, password)
+
+            msg = EmailMessage()
+
+            msg['Subject'] = "User response for Telegram MSB"
+            msg['From'] = address
+            msg['To'] = address
+
+            user_data = f"<br><br><br><b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
+            message = review_msg + user_data
+
+            content = \
+                f"""<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>User Response</title>
+                </head>
+
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200&display=swap" rel="stylesheet">
+
+                <body style="background-image: linear-gradient(160deg, #0d1d1b, #041421);">
+                <h1 style="color: #ffffff; font-family: 'Nunito', sans-serif; text-align: center; padding-top: 20px;">
+                    User Response
+                </h1>
+
+                <p style="color: #ffffff; font-family: 'Nunito', sans-serif; font-size:120%; padding: 10px 50px;">
+                    {message}
+                </p>
+
+                <div style="position:fixed;
+                            left:0;
+                            bottom:0;
+                            height:70px;
+                            width:100%;
+                            border-top: 1px solid #ffffff;
+                            ">
+                <p align="center"><a style="text-decoration: none;
+                                            margin-bottom: 0px;
+                                            color: #ffffff;
+                                            font-family: 'Nunito', sans-serif;" 
+                                            href="https://t.me/medicine_search_bot">
+                                            <img style="max-width: 40px;" 
+                                                        src="https://www.linkpicture.com/q/MSB_Logo_transparent.png" 
+                                                        alt="Logo"></a></p>
+                </div>
+                </body>
+                </html>"""
+
+            msg.set_content(content, subtype='html')
+            smtp.send_message(msg)
+
+        update.message.reply_text(
+            text="*Щиро дякуємо* ❤️ "
+                 "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
+            parse_mode="MarkdownV2",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+    except Exception as e:
+        logger.warning(e)
+        update.message.reply_text(
+            text="*Упс\.\.\. Щось пішло не так* 😞️"
+                 "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота\.",
+            parse_mode="MarkdownV2",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+
+    return ConversationHandler.END
+
+
+def cancel_report(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
+
+    update.message.reply_text(
+        text="☑️ Відгук скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return ConversationHandler.END
+
+
 def main() -> None:
     # noinspection SpellCheckingInspection
     updater = Updater(config['Telegram']['token'])
@@ -343,15 +472,27 @@ def main() -> None:
     continue_scan = MessageHandler(Filters.regex('^(Зрозуміло!|Ще раз)$'), goto_scan)
     decoder = MessageHandler(Filters.photo, retrieve_results)
     not_file = MessageHandler(Filters.attachment, file_warning)
-    do_not_understand = MessageHandler(~ Filters.regex('^(Сканувати|/scan)$') &
-                                       ~ Filters.regex('^(Інструкції|/help)$') &
-                                       ~ Filters.regex('^(Зрозуміло!|Ще раз)$') &
-                                       ~ Filters.regex('Завершити сканування') &
-                                       ~ Filters.regex('Про мене') &
-                                       ~ Filters.photo &
-                                       ~ Filters.attachment, undefined_input)
+    # do_not_understand = MessageHandler(~ Filters.regex('^(Сканувати|/scan)$') &
+    #                                    ~ Filters.regex('^(Інструкції|/help)$') &
+    #                                    ~ Filters.regex('^(Зрозуміло!|Ще раз)$') &
+    #                                    ~ Filters.regex('Завершити сканування') &
+    #                                    ~ Filters.regex('Про мене') &
+    #                                    ~ Filters.regex('^(Надіслати відгук|/review)$') &
+    #                                    ~ Filters.photo &
+    #                                    ~ Filters.attachment, undefined_input)
     cancel = CommandHandler('cancel', cancel_operation)
     about = MessageHandler(Filters.regex('Про мене'), tell_about)
+
+    review_handler = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex('^(Надіслати відгук|/review)$'), start_review)],
+        states={
+            REVIEW: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), send_review)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_report),
+                   MessageHandler(Filters.text("Скасувати"), cancel_report)]
+    )
 
     dispatcher.add_handler(CallbackQueryHandler(google_search_set))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Налаштування|/settings)$'), settings))
@@ -364,8 +505,9 @@ def main() -> None:
     dispatcher.add_handler(continue_scan)
     dispatcher.add_handler(decoder)
     dispatcher.add_handler(not_file)
-    dispatcher.add_handler(do_not_understand)
+    # dispatcher.add_handler(do_not_understand)
     dispatcher.add_handler(about)
+    dispatcher.add_handler(review_handler)
 
     updater.start_polling()
     updater.idle()

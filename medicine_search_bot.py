@@ -242,8 +242,8 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                                                        input_field_placeholder='Продовжуйте'),
                                       text='Штрих-код ' + '<b>' + code_str + '</b>' +
                                            ' на жаль відсутній у моїй базі даних ❌'
-                                           '\n\nЯкщо ви хочете доєднатись наповнення бази даних - скористайтесь нашим'
-                                           ' другим ботом <b>@msb_database_bot</b>',
+                                           '\n\nЯкщо ви хочете долучитись до наповнення бази даних - '
+                                           'скористайтесь нашим другим ботом <b>@msb_database_bot</b>',
                                       quote=True)
 
         if GOOGLE_SEARCH == "True":
@@ -252,7 +252,8 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                                                        resize_keyboard=True,
                                                                        input_field_placeholder='Продовжуйте'),
                                       text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(code_str) +
-                                           ' - ' + f'<a href="{link}"><b>Google</b></a>')
+                                           ' - (За результатами пошуку ' + f'<a href="{link}"><b>Google</b></a>' + ')',
+                                      disable_web_page_preview=True)
 
         global DRUG_CODE
         DRUG_CODE = code_str

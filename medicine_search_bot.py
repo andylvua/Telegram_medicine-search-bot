@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.2.0
+Version: 2.4.0
 """
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
@@ -39,11 +39,19 @@ GOOGLE_SEARCH = "True"
 
 # Conversation states
 REVIEW = 1
+REPORT = 1
+
+MAIN_REPLY_KEYBOARD = [['Сканувати', 'Інструкції', 'Налаштування', 'Надіслати відгук']]
+
+DRUG_CODE = ''
 
 
 def start_handler(update: Update, context: CallbackContext) -> None:
     global GOOGLE_SEARCH
     GOOGLE_SEARCH = "True"
+
+    global DRUG_CODE
+    DRUG_CODE = ''
 
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -82,7 +90,7 @@ def end_scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
         '☑️ Сканування завершено',
@@ -197,7 +205,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
         code_str = result[0].data.decode("utf-8")
         link = 'https://www.google.com/search?q=' + code_str
 
-        reply_keyboard = [['Завершити сканування']]
+        reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
 
         if db_check_availability(code_str) and retrieve_db_photo(code_str) is not None:
             logger.info("The barcode is present in the database")
@@ -211,7 +219,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
                 caption='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' + "\n\n" +
-                      retrieve_db_query(code_str),
+                        retrieve_db_query(code_str),
             )
 
             os.remove("retrieved_image.jpg")
@@ -226,12 +234,16 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                 quote=True
             )
         else:
+            reply_keyboard = [['Завершити сканування']]
+
             update.message.reply_text(parse_mode='HTML',
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
                                                                        input_field_placeholder='Продовжуйте'),
                                       text='Штрих-код ' + '<b>' + code_str + '</b>' +
-                                           ' на жаль відсутній у моїй базі даних ❌',
+                                           ' на жаль відсутній у моїй базі даних ❌'
+                                           '\n\nЯкщо ви хочете доєднатись наповнення бази даних - скористайтесь нашим'
+                                           ' другим ботом <b>@msb_database_bot</b>',
                                       quote=True)
 
         if GOOGLE_SEARCH == "True":
@@ -241,6 +253,9 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                                                        input_field_placeholder='Продовжуйте'),
                                       text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(code_str) +
                                            ' - ' + f'<a href="{link}"><b>Google</b></a>')
+
+        global DRUG_CODE
+        DRUG_CODE = code_str
 
     except IndexError as e:
         logger.info(e)
@@ -293,7 +308,7 @@ def undefined_input(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
         'Я вас не розумію 🧐.\nОберіть, будь ласка, одну з доступних опцій',
@@ -306,7 +321,7 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
         '☑️ Гаразд, операцію скасовано',
@@ -415,7 +430,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
 
     logger.info("User reviewed: %s", review_msg)
 
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     try:
         with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
@@ -496,7 +511,6 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
                  "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота\.",
             parse_mode="MarkdownV2",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
@@ -505,10 +519,59 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
 
 
 def cancel_report(update: Update, context: CallbackContext) -> ConversationHandler.END:
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування']]
+    reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
         text="☑️ Відгук скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return ConversationHandler.END
+
+
+def start_report(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Скасувати']]
+    if DRUG_CODE == "":
+        update.message.reply_text(
+            text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
+        )
+        scan_handler(update=update, context=context)
+        return ConversationHandler.END
+    if db_check_availability(DRUG_CODE) is False:
+        update.message.reply_text(
+            text="⚠️️️ Ви не можете повідомити про штрих-код, що відсутній у базі баних"
+        )
+        return cancel_report(update=update, context=context)
+
+    update.message.reply_text(
+        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{DRUG_CODE}__*"
+             "\n\nНадішліть, будь ласка, короткий опис проблеми",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Опис проблеми')
+    )
+    return REPORT
+
+
+def add_report_description(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    report_description = update.message.text
+    logger.info("User reported: %s", report_description)
+
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    document = collection.find_one({"code": DRUG_CODE})
+    if "report" in document:
+        number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
+        collection.update_one({"code": DRUG_CODE},
+                              {"$set": {"report": document["report"] + f",\n[{number + 1}]: " + report_description}})
+    else:
+        collection.update_one({"code": DRUG_CODE}, {"$set": {"report": "[1]: " + report_description}})
+
+    update.message.reply_text(
+        text="✅️ Дякуємо. Ви успішно повідомили про проблему",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          one_time_keyboard=True,
                                          resize_keyboard=True,
@@ -551,6 +614,17 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
+    report_handler = ConversationHandler(
+        entry_points=[MessageHandler(Filters.text("Повідомити про проблему"), start_report)],
+        states={
+            REPORT: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), add_report_description)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_report),
+                   MessageHandler(Filters.text("Скасувати"), cancel_report)]
+    )
+
     dispatcher.add_handler(CallbackQueryHandler(google_search_set))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Налаштування|/settings)$'), settings))
 
@@ -565,6 +639,7 @@ def main() -> None:
     # dispatcher.add_handler(do_not_understand)
     dispatcher.add_handler(about)
     dispatcher.add_handler(review_handler)
+    dispatcher.add_handler(report_handler)
 
     updater.start_polling()
     updater.idle()

@@ -13,6 +13,7 @@ from email.message import EmailMessage
 
 import os
 import io
+import json
 import logging
 import smtplib
 import configparser
@@ -42,6 +43,7 @@ NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
 CONTACT = 1
 REPORT = 1
 REVIEW = 1
+STATISTICS = 1
 
 DRUG_INFO = {
     "name": "",
@@ -53,6 +55,28 @@ DRUG_INFO = {
 }
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
+
+
+def superuser(func):
+    @wraps(func)
+    def wrapped(update, context, *args, **kwargs):
+        user_id = update.effective_user.id
+        superusers = config.items("Superusers")
+
+        if user_id not in list(int(value) for key, value in superusers):
+            logger.info("Unauthorized superuser access denied ID: {}".format(user_id))
+
+            update.message.reply_text(
+                "❌ *Ви не можете використовувати цю команду, оскільки не "
+                "належите до користувачів із спеціальним доступом*",
+                parse_mode="MarkdownV2"
+            )
+            return
+        else:
+            logger.info("Superuser access granted")
+
+        return func(update, context, *args, **kwargs)
+    return wrapped
 
 
 def restricted(func):
@@ -93,8 +117,10 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
+        '🇺🇦 '
         '*Привіт\! Я бот для адміністування бази даних Telegram MSB\.*'
-        '\n\nОберіть опцію, будь ласка\.',
+        '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- рекомендую подивитись розділ "Інструкції"'
+        '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          one_time_keyboard=True,
@@ -707,7 +733,7 @@ def register(update: Update, context: CallbackContext) -> int:
         reply_keyboard = MAIN_REPLY_KEYBOARD
 
         update.message.reply_text(
-            text="☑️ Ви вже пройшли авторизацію",
+            text="☑️ Ви вже пройшли авторизацію. Вас зареєстровано як адміністратора",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard)
         )
         return ConversationHandler.END
@@ -953,6 +979,98 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
     return ConversationHandler.END
 
 
+@superuser
+def statistics_for_user(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Скасувати']]
+
+    update.message.reply_text(
+        text="Введіть ID користувача для отримання статистики",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return STATISTICS
+
+
+def get_admin_info(user_id):
+    admin_info = admins_collection.find_one({"user_id": user_id}, {"_id": 0})
+    return "\nІнформація: " + json.dumps(admin_info, sort_keys=False, ensure_ascii=False, indent=4)
+
+
+def get_banned_info(user_id):
+    banned_info = blacklist.find_one({"user_id": user_id}, {"_id": 0})
+    return "\nІнформація: " + json.dumps(banned_info, sort_keys=False, ensure_ascii=False, indent=4)
+
+
+def show_statistics(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    entered_id = int(update.message.text)
+
+    try:
+        documents_quantity = collection.count_documents({"user_id": entered_id})
+        is_admin = admins_collection.count_documents({"user_id": entered_id}) > 0
+        is_banned = blacklist.count_documents({"user_id": entered_id}) > 0
+
+    except Exception as e:
+        logger.info(e)
+
+        update.message.reply_text(
+            text=f"Щось пішло не так: \n\n{e}",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+    else:
+        if documents_quantity == 0 and not is_admin and not is_banned == 0:
+            update.message.reply_text(
+                text="Статистика для користувача *{}* відсутня ⚠️".format(entered_id),
+                parse_mode="MarkdownV2",
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Оберіть опцію')
+            )
+        else:
+            if is_admin:
+                admin_info = get_admin_info(entered_id)
+            else:
+                admin_info = ''
+
+            if is_banned:
+                banned_info = get_banned_info(entered_id)
+            else:
+                banned_info = ''
+
+            update.message.reply_text(
+                text="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
+                f"<b>Додано медикаментів</b>: {documents_quantity}"
+                f"\n<b>Чи є адміністратором</b>: {is_admin}{admin_info}"
+                f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Оберіть опцію')
+            )
+    return ConversationHandler.END
+
+
+def cancel_statistics(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    update.message.reply_text(
+        text="☑️ Отримання статистики скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return ConversationHandler.END
+
+
 def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
@@ -1039,6 +1157,18 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
+    statistics = ConversationHandler(
+        entry_points=[CommandHandler('statistics', statistics_for_user)],
+        states={
+            STATISTICS: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), show_statistics)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_statistics),
+                   MessageHandler(Filters.text("Скасувати"), cancel_statistics)]
+    )
+
+    dispatcher.add_handler(statistics)
     dispatcher.add_handler(register_handler)
     dispatcher.add_handler(report_handler)
     dispatcher.add_handler(review_handler)

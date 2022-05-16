@@ -60,7 +60,7 @@ def restricted(func):
     def wrapped(update, context, *args, **kwargs):
         user_id = update.effective_user.id
         if blacklist.count_documents({"user_id": user_id}) != 0:
-            logger.info("User banned")
+            logger.info("User banned by ID: {}".format(user_id))
             blocked_user = blacklist.find_one({"user_id": user_id}, {"_id": 0})
 
             update.message.reply_text(
@@ -71,7 +71,7 @@ def restricted(func):
             )
             return
         if admins_collection.count_documents({"user_id": user_id}) != 0:
-            logger.info("Admin is already registered")
+            logger.info("Admin is already registered. Access granted")
         else:
             update.message.reply_text(
                 "❌ Ви не можете проводити операцій з базою даних\. \n\nВаш ID *{}* не зареєстровано "
@@ -79,7 +79,7 @@ def restricted(func):
                 "\n\nАби зареєструватись, виконайте команду */authorize*".format(user_id),
                 parse_mode='MarkdownV2',
             )
-            logger.info("Unauthorized access denied for {}".format(user_id))
+            logger.info("Unauthorized access denied for {}. Asking to authorize".format(user_id))
             return
         return func(update, context, *args, **kwargs)
 
@@ -134,7 +134,7 @@ def db_check_availability(code_str) -> bool or None:
 
 def retrieve_db_query(code_str) -> str or None:
     try:
-        logger.info("Database quired. Retrieving results")
+        logger.info("Database quired. Retrieving info")
         query_result = collection.find_one({"code": code_str}, {"_id": 0})
         str_output = f"<b>Назва</b>: {query_result['name']} " \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \

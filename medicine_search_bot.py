@@ -11,6 +11,7 @@ from pyzbar.pyzbar import decode
 from email.message import EmailMessage
 
 import os
+import io
 import logging
 import smtplib
 import configparser
@@ -134,16 +135,46 @@ def goto_scan(update: Update, context: CallbackContext) -> None:
     return scan_handler(update=update, context=context)
 
 
-def db_query(code) -> str:
-    if collection.count_documents({"code": code}) != 0:
-        query_result = collection.find_one({"code": code}, {"_id": 0})
-        output = f"<b>Штрих-код</b>: {query_result['code']}" \
-                 f"\n<b>Назва</b>: {query_result['name']} " \
-                 f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
-                 f"\n<b>Опис</b>: {query_result['description']} "
-        return output
-    else:
-        return "Цей штрих-код відсутній у моїй базі даних ❌"
+def db_check_availability(code_str) -> bool or None:
+    try:
+        logger.info("Database quired. Checking availability")
+        if collection.count_documents({"code": code_str}) != 0:
+            return True
+        else:
+            return False
+    except Exception as e:
+        logger.error(e)
+        return
+
+
+def retrieve_db_query(code_str) -> str or None:
+    try:
+        logger.info("Database quired. Retrieving info")
+        query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        str_output = f"<b>Назва</b>: {query_result['name']} " \
+                     f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
+                     f"\n<b>Опис</b>: {query_result['description']} "
+        return str_output
+    except Exception as e:
+        logger.info(e)
+        return
+
+
+def retrieve_db_photo(code_str) -> Image or None:
+    try:
+        query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        logger.info("Database quired")
+
+        if query_result['photo'] == b'':
+            logger.info("Field 'photo' is empty")
+            return
+
+        logger.info("Retrieving photo")
+        img = Image.open(io.BytesIO(query_result['photo']))
+        return img
+    except Exception as e:
+        logger.info(e)
+        return
 
 
 # noinspection DuplicatedCode
@@ -168,14 +199,40 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
 
         reply_keyboard = [['Завершити сканування']]
 
-        update.message.reply_text(parse_mode='HTML',
-                                  reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                   resize_keyboard=True,
-                                                                   input_field_placeholder='Продовжуйте'),
-                                  text='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' +
-                                       '<b>' + '\n\n🔍 Результати пошуку:\n' + '</b>' +
-                                       db_query(code_str),
-                                  quote=True)
+        if db_check_availability(code_str) and retrieve_db_photo(code_str) is not None:
+            logger.info("The barcode is present in the database")
+            img = retrieve_db_photo(code_str)
+            img.save("retrieved_image.jpg")
+
+            update.message.reply_photo(
+                open("retrieved_image.jpg", 'rb'),
+                parse_mode='HTML',
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Продовжуйте'),
+                caption='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' + "\n\n" +
+                      retrieve_db_query(code_str),
+            )
+
+            os.remove("retrieved_image.jpg")
+        elif db_check_availability(code_str):
+            update.message.reply_text(
+                parse_mode='HTML',
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Продовжуйте'),
+                text='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' + "\n\n" +
+                     retrieve_db_query(code_str) + "\n\n⚠️ Фото відсутнє",
+                quote=True
+            )
+        else:
+            update.message.reply_text(parse_mode='HTML',
+                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                                       resize_keyboard=True,
+                                                                       input_field_placeholder='Продовжуйте'),
+                                      text='Штрих-код ' + '<b>' + code_str + '</b>' +
+                                           ' на жаль відсутній у моїй базі даних ❌',
+                                      quote=True)
 
         if GOOGLE_SEARCH == "True":
             update.message.reply_text(parse_mode='HTML',

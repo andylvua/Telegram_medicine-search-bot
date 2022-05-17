@@ -3,6 +3,7 @@ Author: Andrew Yaroshevych
 Version: 2.5.0
 """
 import re
+from datetime import datetime
 
 from telegram import ReplyKeyboardMarkup, Update, KeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
@@ -43,7 +44,7 @@ NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
 CONTACT = 1
 REPORT = 1
 REVIEW = 1
-STATISTICS = 1
+STATISTICS, SEND_FILES = range(2)
 
 DRUG_INFO = {
     "name": "",
@@ -51,7 +52,8 @@ DRUG_INFO = {
     "description": "",
     "code": "",
     "photo": b'',
-    "user_id": 0
+    "user_id": 0,
+    "added_on": ''
 }
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
@@ -264,7 +266,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         reply_keyboard = [['Ще раз', 'Інструкції']]
 
         update.message.reply_text(
-            text="*На жаль, сталася помилка ❌ *"
+            text="*На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код ❌ *"
                  "\nСпробуйте ще раз, або подивіться інструкції до сканування та "
                  "переконайтесь, що робите все правильно\.",
             quote=True,
@@ -453,12 +455,28 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати додавання', 'Пропустити']]
 
     description = update.message.text
-    if validators.check_description(description) != description:
-        logger.info("Description is not correct, asking to retry", update.message.text)
+    try:
+        if validators.check_description(description) != description:
+            logger.info("Description is not correct, asking to retry")
+
+            reply_keyboard = [['Скасувати додавання']]
+
+            update.message.reply_text(
+                text=f'Вкажіть, будь ласка, опис українською мовою'
+                     f'\n\nПоточна мова: {validators.check_description(description)}',
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder="Повторіть ввід"),
+            )
+            return PHOTO
+    except Exception as e:
+        logger.info("Description is not correct, asking to retry")
+        logger.info(e)
+
+        reply_keyboard = [['Скасувати додавання']]
 
         update.message.reply_text(
-            text=f'Вкажіть, будь ласка, опис українською мовою'
-                 f'\n\nПоточна мова: {validators.check_description(description)}',
+            text=f'Мені не вдалося розпізнати мову введеного тексту. Введіть, будь ласка, коректний опис!',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder="Повторіть ввід"),
@@ -547,7 +565,9 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
 
     if update.message.text == 'Так, додати до бази даних':
         user_id = update.effective_user.id
+
         DRUG_INFO["user_id"] = user_id
+        DRUG_INFO["added_on"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
 
         post_id = collection.insert_one(DRUG_INFO).inserted_id
         logger.info("Checked info. Added successfully")
@@ -830,7 +850,7 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     if "report" in document:
         number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": DRUG_INFO["code"]},
-                              {"$set": {"report": document["report"] + f",\n[{number + 1}]: " + report_description}})
+                              {"$set": {"report": document["report"] + f", [{number + 1}]: " + report_description}})
     else:
         collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": "[1]: " + report_description}})
 
@@ -1004,12 +1024,14 @@ def get_banned_info(user_id):
 
 
 def show_statistics(update: Update, context: CallbackContext) -> ConversationHandler.END:
-    reply_keyboard = MAIN_REPLY_KEYBOARD
+    reply_keyboard = [['Завершити']]
 
     entered_id = int(update.message.text)
+    context.user_data["entered_id"] = entered_id
 
     try:
         documents_quantity = collection.count_documents({"user_id": entered_id})
+        reports_quantity = collection.count_documents({"user_id": entered_id, "report": {'$exists': 'true'}})
         is_admin = admins_collection.count_documents({"user_id": entered_id}) > 0
         is_banned = blacklist.count_documents({"user_id": entered_id}) > 0
 
@@ -1044,9 +1066,16 @@ def show_statistics(update: Update, context: CallbackContext) -> ConversationHan
             else:
                 banned_info = ''
 
+            if reports_quantity > 0:
+                reply_keyboard[0].insert(0, 'Отримати список скарг')
+
+            if documents_quantity > 0:
+                reply_keyboard[0].insert(0, 'Отримати додані медикаменти')
+
             update.message.reply_text(
                 text="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
                 f"<b>Додано медикаментів</b>: {documents_quantity}"
+                f"\n<b>Поданих скарг на інформацію</b>: {reports_quantity}"
                 f"\n<b>Чи є адміністратором</b>: {is_admin}{admin_info}"
                 f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
                 parse_mode="HTML",
@@ -1055,14 +1084,59 @@ def show_statistics(update: Update, context: CallbackContext) -> ConversationHan
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Оберіть опцію')
             )
-    return ConversationHandler.END
+
+    context.user_data["reply_keyboard"] = reply_keyboard
+    return SEND_FILES
+
+
+def send_files(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    entered_id = context.user_data["entered_id"]
+
+    reply_keyboard = context.user_data["reply_keyboard"]
+
+    if update.message.text == 'Отримати додані медикаменти':
+        medicine_by_user_id = list(
+            collection.find({"user_id": entered_id}, {"_id": 0, "photo": 0, "report": 0, "user_id": 0}))
+
+        with open('data.json', 'w', encoding='utf-8') as f:
+            json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
+
+        update.message.reply_document(
+            document=open('data.json', 'rb'),
+            filename=f"Statistics_for_{entered_id}.json",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+        os.remove('data.json')
+
+    if update.message.text == 'Отримати список скарг':
+        medicine_by_user_id = list(collection.find({"user_id": entered_id, "report": {'$exists': 'true'}},
+                                                   {"_id": 0, "photo": 0, "user_id": 0, "active_ingredient": 0,
+                                                    "description": 0}))
+
+        with open('data.json', 'w', encoding='utf-8') as f:
+            json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
+
+        update.message.reply_document(
+            document=open('data.json', 'rb'),
+            filename=f"Reports_for_{entered_id}.json",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+        os.remove('data.json')
+
+    return SEND_FILES
 
 
 def cancel_statistics(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
-        text="☑️ Отримання статистики скасовано",
+        text="☑️ Отримання статистики завершено",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          one_time_keyboard=True,
                                          resize_keyboard=True,
@@ -1079,6 +1153,7 @@ def main() -> None:
     start = CommandHandler('start', start_handler)
     cancel_echo = CommandHandler('cancel', cancel_default)
     decoder = MessageHandler(Filters.photo, retrieve_scan_results)
+    decoder_str = MessageHandler(Filters.regex('^\d{13}$'), retrieve_scan_results)
     not_file = MessageHandler(Filters.attachment, file_warning)
     end_scan = MessageHandler(Filters.regex('^(Завершити сканування|Відмінити сканування|Зрозуміло!|Ні)$'),
                               main_keyboard_handler)
@@ -1163,9 +1238,12 @@ def main() -> None:
             STATISTICS: [
                 MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), show_statistics)
             ],
+            SEND_FILES: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.regex('^(Скасувати|Завершити)$'), send_files)
+            ],
         },
         fallbacks=[CommandHandler('cancel', cancel_statistics),
-                   MessageHandler(Filters.text("Скасувати"), cancel_statistics)]
+                   MessageHandler(Filters.regex('^(Скасувати|Завершити)$'), cancel_statistics)]
     )
 
     dispatcher.add_handler(statistics)

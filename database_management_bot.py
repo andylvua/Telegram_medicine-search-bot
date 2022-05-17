@@ -45,6 +45,7 @@ CONTACT = 1
 REPORT = 1
 REVIEW = 1
 STATISTICS, SEND_FILES = range(2)
+REASON, BAN = range(2)
 
 DRUG_INFO = {
     "name": "",
@@ -1145,6 +1146,71 @@ def cancel_statistics(update: Update, context: CallbackContext) -> ConversationH
     return ConversationHandler.END
 
 
+@superuser
+def start_ban(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Скасувати']]
+
+    update.message.reply_text(
+        text="Введіть ID користувача для блокування",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return REASON
+
+
+def get_reason(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Скасувати']]
+
+    context.user_data["user_id"] = int(update.message.text)
+
+    update.message.reply_text(
+        text="Введіть причину блокування блокування",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return BAN
+
+
+def ban_user(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    reason = update.message.text
+
+    post = {
+        "user_id": context.user_data["user_id"],
+        "reason": reason,
+        "banned_on": datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+    }
+
+    post_id = blacklist.insert_one(post).inserted_id
+
+    update.message.reply_text(
+        text="✅ Користувача успішно заблоковано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return ConversationHandler.END
+
+
+def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    update.message.reply_text(
+        text="☑️ Блокування користувача скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return ConversationHandler.END
+
+
 def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
@@ -1246,6 +1312,20 @@ def main() -> None:
                    MessageHandler(Filters.regex('^(Скасувати|Завершити)$'), cancel_statistics)]
     )
 
+    ban = ConversationHandler(
+        entry_points=[CommandHandler('ban', start_ban)],
+        states={
+            REASON: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), get_reason)
+            ],
+            BAN: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), ban_user)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_ban),
+                   MessageHandler(Filters.text("Скасувати"), cancel_ban)]
+    )
+
     dispatcher.add_handler(statistics)
     dispatcher.add_handler(register_handler)
     dispatcher.add_handler(report_handler)
@@ -1258,6 +1338,7 @@ def main() -> None:
     dispatcher.add_handler(end_scan)
     dispatcher.add_handler(instructions)
     dispatcher.add_handler(cancel_echo)
+    dispatcher.add_handler(ban)
 
     updater.start_polling()
     updater.idle()

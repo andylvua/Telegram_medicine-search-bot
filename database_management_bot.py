@@ -1211,58 +1211,6 @@ def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.
     return ConversationHandler.END
 
 
-def retrieve_by_name(update: Update, context: CallbackContext):
-    name = "нова наЗва"
-
-    medicine_by_name = collection.find({'$text': {'$search': name}},
-                                       {'score': {'$meta': "textScore"}}).limit(3)
-
-    medicine_by_name.sort([('score', {'$meta': 'textScore'})])
-
-    reply_keyboard = [['Завершити сканування']]
-
-    if not medicine_by_name:
-        update.message.reply_text(
-            text="*❌ Нічого не знайдено*",
-            parse_mode="MarkdownV2"
-        )
-        return
-
-    update.message.reply_text(
-        text="*Результати пошуку:*",
-        parse_mode="MarkdownV2"
-    )
-
-    for item in medicine_by_name:
-        str_output = f"<b>Назва</b>: {item['name']} " \
-                     f"\n<b>Діюча речовина</b>: {item['active_ingredient']} " \
-                     f"\n<b>Опис</b>: {item['description']}"
-
-        if item["photo"] == b'':
-            update.message.reply_text(
-                text='⚠️ Фото відсутнє\n\n' + str_output,
-                parse_mode="HTML",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
-            )
-        else:
-            img = Image.open(io.BytesIO(item['photo']))
-            img.save("retrieved_image.jpg")
-
-            update.message.reply_photo(
-                open("retrieved_image.jpg", 'rb'),
-                caption=str_output,
-                parse_mode="HTML",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
-            )
-            os.remove("retrieved_image.jpg")
-
-
 def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
@@ -1391,8 +1339,6 @@ def main() -> None:
     dispatcher.add_handler(instructions)
     dispatcher.add_handler(cancel_echo)
     dispatcher.add_handler(ban)
-
-    dispatcher.add_handler(CommandHandler('by_name', retrieve_by_name))
 
     updater.start_polling()
     updater.idle()

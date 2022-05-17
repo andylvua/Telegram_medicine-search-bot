@@ -40,8 +40,9 @@ GOOGLE_SEARCH = "True"
 # Conversation states
 REVIEW = 1
 REPORT = 1
+SEARCH = 1
 
-MAIN_REPLY_KEYBOARD = [['Сканувати', 'Інструкції', 'Налаштування', 'Надіслати відгук']]
+MAIN_REPLY_KEYBOARD = [['Сканувати', 'Пошук'], ['Інструкції', 'Налаштування', 'Надіслати відгук']]
 
 DRUG_CODE = ''
 
@@ -56,7 +57,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
-    reply_keyboard = [['Сканувати', 'Інструкції', 'Налаштування'], ['Про мене', 'Надіслати відгук']]
+    reply_keyboard = [['Сканувати', 'Інструкції', 'Пошук'], ['Налаштування', 'Про мене', 'Надіслати відгук']]
 
     update.message.reply_text(
         '🇺🇦 '
@@ -581,6 +582,154 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     return ConversationHandler.END
 
 
+def start_search(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [['Скасувати']]
+
+    update.message.reply_text(
+        text="Введіть *назву*, *активну речовину*, або *штрих\-код* для пошуку по базі даних",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Опис проблеми')
+    )
+    return SEARCH
+
+
+def search_by_name(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    query = update.message.text
+
+    logger.info("Entered query: %s", query)
+
+    medicine_by_name = collection.find({'$text': {'$search': query}},
+                                       {'score': {'$meta': "textScore"}}).limit(3)
+
+    medicine_by_name.sort([('score', {'$meta': 'textScore'})])
+
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    if not list(medicine_by_name):
+        logger.info("Nothing is found")
+
+        update.message.reply_text(
+            text="*❌ Нічого не знайдено*",
+            parse_mode="MarkdownV2",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+        return ConversationHandler.END
+
+    logger.info("Found something")
+
+    update.message.reply_text(
+        text="*Результати пошуку:*",
+        parse_mode="MarkdownV2"
+    )
+
+    medicine_by_name.rewind()
+    for item in medicine_by_name:
+        str_output = f"<b>Назва</b>: {item['name']} " \
+                     f"\n<b>Діюча речовина</b>: {item['active_ingredient']} " \
+                     f"\n<b>Опис</b>: {item['description']}"
+
+        if item["photo"] == b'':
+            update.message.reply_text(
+                text='⚠️ Фото відсутнє\n\n' + str_output,
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Оберіть опцію')
+            )
+        else:
+            img = Image.open(io.BytesIO(item['photo']))
+            img.save("retrieved_image.jpg")
+
+            update.message.reply_photo(
+                open("retrieved_image.jpg", 'rb'),
+                caption=str_output,
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Оберіть опцію')
+            )
+            os.remove("retrieved_image.jpg")
+
+    medicine_by_name.close()
+    return ConversationHandler.END
+
+
+def search_by_barcode(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    code_str = update.message.text
+
+    logger.info("Entered barcode: %s", code_str)
+
+    medicine_by_barcode = collection.find_one({"code": code_str}, {"_id": 0, "report": 0})
+
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    if not list(medicine_by_barcode):
+        logger.info("Nothing is found")
+
+        update.message.reply_text(
+            text="*❌ Нічого не знайдено*",
+            parse_mode="MarkdownV2"
+        )
+        return ConversationHandler.END
+
+    logger.info("Found something")
+
+    update.message.reply_text(
+        text="*Результати пошуку:*",
+        parse_mode="MarkdownV2"
+    )
+
+    str_output = f"<b>Назва</b>: {medicine_by_barcode['name']} " \
+                 f"\n<b>Діюча речовина</b>: {medicine_by_barcode['active_ingredient']} " \
+                 f"\n<b>Опис</b>: {medicine_by_barcode['description']}"
+
+    if medicine_by_barcode["photo"] == b'':
+        update.message.reply_text(
+            text='⚠️ Фото відсутнє\n\n' + str_output,
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+    else:
+        img = Image.open(io.BytesIO(medicine_by_barcode['photo']))
+        img.save("retrieved_image.jpg")
+
+        update.message.reply_photo(
+            open("retrieved_image.jpg", 'rb'),
+            caption=str_output,
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+        os.remove("retrieved_image.jpg")
+
+    return ConversationHandler.END
+
+
+def cancel_search(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    update.message.reply_text(
+        text="☑️ Пошук скасовано",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Оберіть опцію')
+    )
+    return ConversationHandler.END
+
+
 def main() -> None:
     # noinspection SpellCheckingInspection
     updater = Updater(config['Telegram']['token'])
@@ -626,10 +775,25 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
+    search = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex('^(Пошук|/search)$'), start_search)],
+        states={
+            SEARCH: [
+                MessageHandler(Filters.text & ~Filters.regex('^(\d{13})$') & ~Filters.command &
+                               ~Filters.text("Скасувати"), search_by_name),
+                MessageHandler(Filters.regex('^(\d{13})$') & ~Filters.command & ~Filters.text("Скасувати"),
+                               search_by_barcode)
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_search),
+                   MessageHandler(Filters.text("Скасувати"), cancel_search)]
+    )
+
     dispatcher.add_handler(CallbackQueryHandler(google_search_set))
     dispatcher.add_handler(MessageHandler(Filters.regex('^(Налаштування|/settings)$'), settings))
 
     dispatcher.add_handler(start)
+    dispatcher.add_handler(search)
     dispatcher.add_handler(scan)
     dispatcher.add_handler(end_scan)
     dispatcher.add_handler(cancel)

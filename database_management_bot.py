@@ -67,7 +67,7 @@ def under_maintenance(func):
     def wrapped(update, context, *args, **kwargs):
         user_id = int(update.effective_user.id)
 
-        if user_id != 483571608:
+        if user_id != 483571608 and UNDER_MAINTENANCE is True:
             logger.info("Unauthorized maintenance access denied ID: {}".format(user_id))
 
             update.message.reply_text(

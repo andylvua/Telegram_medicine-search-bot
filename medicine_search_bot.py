@@ -44,8 +44,6 @@ SEARCH = 1
 
 MAIN_REPLY_KEYBOARD = [['Сканувати', 'Пошук'], ['Інструкції', 'Налаштування', 'Надіслати відгук']]
 
-DRUG_CODE = ''
-
 UNDER_MAINTENANCE = True
 
 
@@ -72,9 +70,9 @@ def under_maintenance(func):
 @under_maintenance
 def start_handler(update: Update, context: CallbackContext) -> None:
     context.user_data["GOOGLE_SEARCH"] = "True"
+    context.user_data["DRUG_CODE"] = ''
 
-    global DRUG_CODE
-    DRUG_CODE = ''
+    print(context.user_data)
 
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -283,9 +281,8 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                            ' - (За результатами пошуку ' + f'<a href="{link}"><b>Google</b></a>' + ')',
                                       disable_web_page_preview=True)
 
-        global DRUG_CODE
-        DRUG_CODE = code_str
-
+        context.user_data["DRUG_CODE"] = code_str
+        print(context.user_data)
     except IndexError as e:
         logger.info(e)
 
@@ -564,26 +561,31 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію')
     )
+
+    context.user_data["DRUG_CODE"] = ''
     return ConversationHandler.END
 
 
 @under_maintenance
 def start_report(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
-    if DRUG_CODE == "":
+
+    drug_code = context.user_data["DRUG_CODE"]
+
+    if drug_code == "":
         update.message.reply_text(
             text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
         )
         scan_handler(update=update, context=context)
         return ConversationHandler.END
-    if db_check_availability(DRUG_CODE) is False:
+    if db_check_availability(drug_code) is False:
         update.message.reply_text(
             text="⚠️️️ Ви не можете повідомити про штрих-код, що відсутній у базі баних"
         )
         return cancel_report(update=update, context=context)
 
     update.message.reply_text(
-        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{DRUG_CODE}__*"
+        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{drug_code}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -601,13 +603,15 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    document = collection.find_one({"code": DRUG_CODE})
+    drug_code = context.user_data["DRUG_CODE"]
+
+    document = collection.find_one({"code": drug_code})
     if "report" in document:
         number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
-        collection.update_one({"code": DRUG_CODE},
+        collection.update_one({"code": drug_code},
                               {"$set": {"report": document["report"] + f",\n[{number + 1}]: " + report_description}})
     else:
-        collection.update_one({"code": DRUG_CODE}, {"$set": {"report": "[1]: " + report_description}})
+        collection.update_one({"code": drug_code}, {"$set": {"report": "[1]: " + report_description}})
 
     update.message.reply_text(
         text="✅️ Дякуємо. Ви успішно повідомили про проблему",
@@ -616,6 +620,8 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію')
     )
+
+    context.user_data["DRUG_CODE"] = ''
     return ConversationHandler.END
 
 

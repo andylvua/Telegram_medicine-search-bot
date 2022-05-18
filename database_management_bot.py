@@ -5,7 +5,7 @@ Version: 2.5.0
 import re
 from datetime import datetime
 
-from telegram import ReplyKeyboardMarkup, Update, KeyboardButton
+from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 from PIL import Image
@@ -275,6 +275,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
             )
         else:
             logger.info("The barcode is missing from the database. Asking to add info")
+            link = 'https://www.google.com/search?q=' + code_str
 
             update.message.reply_text(
                 parse_mode='HTML',
@@ -283,8 +284,11 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                                                  input_field_placeholder='Продовжуйте'),
                 text='❌ Штрих-код ' + '<b>' + code_str + '</b>' +
                      ' відсутній у моїй базі даних.\n\n' +
-                     'Чи бажаєте Ви додати інформацію про цей медикамент?',
-                quote=True
+                     'Чи бажаєте Ви додати інформацію про цей медикамент?'
+                     f'\n\nДля зручності, ви можете знайти інформацію про цей медикамент у '
+                     f'<a href="{link}"><b>Google</b></a>',
+                quote=True,
+                disable_web_page_preview=True
             )
 
     except IndexError as e:
@@ -361,9 +365,7 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
 
             update.message.reply_text(
                 text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
-                quote=True,
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 resize_keyboard=True)
+                quote=True
             )
 
             return cancel(update=update, context=context)
@@ -373,9 +375,7 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
             logger.info("Storing barcode info")
             update.message.reply_text(
                 text="Штрих-код відскановано успішно ✅",
-                quote=True,
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 resize_keyboard=True)
+                quote=True
             )
 
     except IndexError as e:
@@ -396,9 +396,7 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     logger.info("Asking for a name")
     update.message.reply_text(
         text='Надішліть назву медикаменту',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder="Введіть назву")
+        reply_markup=ForceReply(input_field_placeholder="Назва")
     )
 
     return INGREDIENT
@@ -419,9 +417,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
             text='*Вкажіть, будь ласка, корректну назву*'
                  f'\n\nПоточна назва "{name}" містить тільки цифри',
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Повторіть ввід"),
+            reply_markup=ForceReply(input_field_placeholder="Повторіть")
         )
         return INGREDIENT
 
@@ -431,9 +427,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text='Вкажіть, будь ласка, діючу речовину медикаменту',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder="Введіть діючу речовину"),
+        reply_markup=ForceReply(input_field_placeholder="Діюча речовина")
     )
 
     return ABOUT
@@ -454,9 +448,8 @@ def get_about(update: Update, context: CallbackContext) -> int:
             text='*Вкажіть, будь ласка, корректну назву діючої речовини*'
                  f'\n\nПоточна назва діючої речовини "{active_ingredient}" містить тільки цифри',
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Повторіть ввід"),
+            reply_markup=ForceReply(input_field_placeholder="Повторіть")
+
         )
         return ABOUT
 
@@ -466,9 +459,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text='Тепер надішліть короткий опис даного препарату',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder="Введіть опис")
+        reply_markup=ForceReply(input_field_placeholder="Опис")
     )
 
     return PHOTO
@@ -491,9 +482,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
             update.message.reply_text(
                 text=f'Вкажіть, будь ласка, опис українською мовою'
                      f'\n\nПоточна мова: {validators.check_description(description)}',
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder="Повторіть ввід"),
+                reply_markup=ForceReply(input_field_placeholder="Повторіть")
             )
             return PHOTO
     except Exception as e:
@@ -504,9 +493,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text=f'Мені не вдалося розпізнати мову введеного тексту. Введіть, будь ласка, коректний опис!',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Повторіть ввід"),
+            reply_markup=ForceReply(input_field_placeholder="Повторіть")
         )
         return PHOTO
 

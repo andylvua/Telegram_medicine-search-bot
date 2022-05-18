@@ -44,7 +44,7 @@ SEARCH = 1
 
 MAIN_REPLY_KEYBOARD = [['Сканувати', 'Пошук'], ['Інструкції', 'Налаштування', 'Надіслати відгук']]
 
-UNDER_MAINTENANCE = True
+UNDER_MAINTENANCE = False
 
 
 def under_maintenance(func):
@@ -69,8 +69,6 @@ def under_maintenance(func):
 
 @under_maintenance
 def start_handler(update: Update, context: CallbackContext) -> None:
-    context.user_data["GOOGLE_SEARCH"] = "True"
-    context.user_data["DRUG_CODE"] = ''
 
     print(context.user_data)
 
@@ -272,7 +270,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                            'скористайтесь нашим другим ботом <b>@msb_database_bot</b>',
                                       quote=True)
 
-        if context.user_data["GOOGLE_SEARCH"] == "True":
+        if context.user_data.setdefault("GOOGLE_SEARCH", "True") == "True":
             update.message.reply_text(parse_mode='HTML',
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
@@ -282,7 +280,6 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       disable_web_page_preview=True)
 
         context.user_data["DRUG_CODE"] = code_str
-        print(context.user_data)
     except IndexError as e:
         logger.info(e)
 
@@ -570,7 +567,7 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
 def start_report(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
-    drug_code = context.user_data["DRUG_CODE"]
+    drug_code = context.user_data.get("DRUG_CODE", '')
 
     if drug_code == "":
         update.message.reply_text(

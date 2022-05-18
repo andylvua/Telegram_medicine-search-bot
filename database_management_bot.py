@@ -47,19 +47,10 @@ REVIEW = 1
 STATISTICS, SEND_FILES = range(2)
 REASON, BAN = range(2)
 
-DRUG_INFO = {
-    "name": "",
-    "active_ingredient": "",
-    "description": "",
-    "code": "",
-    "photo": b'',
-    "user_id": 0,
-    "added_on": ''
-}
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
-UNDER_MAINTENANCE = True
+UNDER_MAINTENANCE = False
 
 
 def under_maintenance(func):
@@ -139,6 +130,16 @@ def restricted(func):
 def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
+
+    context.user_data["DRUG_INFO"] = {
+        "name": "",
+        "active_ingredient": "",
+        "description": "",
+        "code": "",
+        "photo": b'',
+        "user_id": 0,
+        "added_on": ''
+    }
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -235,8 +236,8 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 
         result = decode(Image.open('code.png'))
         code_str = result[0].data.decode("utf-8")
-        DRUG_INFO["code"] = code_str
-
+        context.user_data.setdefault("DRUG_INFO", {})["code"] = code_str
+        print(context.user_data)
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
         reply_keyboard2 = [['Так', 'Ні']]
 
@@ -371,7 +372,7 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
             return cancel(update=update, context=context)
         else:
             logger.info("Barcode scanned successfully")
-            DRUG_INFO["code"] = code_str
+            context.user_data.setdefault("DRUG_INFO", {})["code"] = code_str
             logger.info("Storing barcode info")
             update.message.reply_text(
                 text="Штрих-код відскановано успішно ✅",
@@ -429,7 +430,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
         )
         return INGREDIENT
 
-    DRUG_INFO["name"] = name
+    context.user_data.setdefault("DRUG_INFO", {})["name"] = name
 
     logger.info("Asking for an active ingredient")
 
@@ -464,7 +465,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
         )
         return ABOUT
 
-    DRUG_INFO["active_ingredient"] = active_ingredient
+    context.user_data["DRUG_INFO"]["active_ingredient"] = active_ingredient
 
     logger.info("Asking for a description")
 
@@ -514,7 +515,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
         )
         return PHOTO
 
-    DRUG_INFO["description"] = description
+    context.user_data["DRUG_INFO"]["description"] = description
 
     update.message.reply_text(
         text='Також, надішліть фото передньої сторони упаковки медикаменту.'
@@ -537,9 +538,11 @@ def check_info(update: Update, context: CallbackContext) -> int:
 
     user = update.message.from_user
 
-    output = f"<b>Назва</b>: {DRUG_INFO['name']} " \
-             f"\n<b>Діюча речовина</b>: {DRUG_INFO['active_ingredient']} " \
-             f"\n<b>Опис</b>: {DRUG_INFO['description']} "
+    drug_info = context.user_data["DRUG_INFO"]
+
+    output = f"<b>Назва</b>: {drug_info['name']} " \
+             f"\n<b>Діюча речовина</b>: {drug_info['active_ingredient']} " \
+             f"\n<b>Опис</b>: {drug_info['description']} "
 
     reply_keyboard = [['Так, додати до бази даних', 'Змінити інформацію', 'Ні, скасувати']]
 
@@ -552,7 +555,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
         image_bytes = io.BytesIO()
         img.save(image_bytes, format='JPEG')
 
-        DRUG_INFO["photo"] = image_bytes.getvalue()
+        context.user_data["DRUG_INFO"]["photo"] = image_bytes.getvalue()
 
         update.message.reply_photo(
             open("photo.jpg", 'rb'),
@@ -564,7 +567,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
         os.remove("photo.jpg")
-    elif update.message.text and DRUG_INFO["photo"] == b'':
+    elif update.message.text and drug_info["photo"] == b'':
         update.message.reply_text(
             text='<b>Введена інформація:</b>\n\n' +
                  '⚠️ Фото відсутнє\n' + output +
@@ -575,7 +578,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
     else:
-        img = Image.open(io.BytesIO(DRUG_INFO['photo']))
+        img = Image.open(io.BytesIO(drug_info['photo']))
         img.save("photo.jpg")
 
         update.message.reply_photo(
@@ -600,10 +603,10 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
     if update.message.text == 'Так, додати до бази даних':
         user_id = update.effective_user.id
 
-        DRUG_INFO["user_id"] = user_id
-        DRUG_INFO["added_on"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+        context.user_data["DRUG_INFO"]["user_id"] = user_id
+        context.user_data["DRUG_INFO"]["added_on"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
 
-        post_id = collection.insert_one(DRUG_INFO).inserted_id
+        post_id = collection.insert_one(context.user_data["DRUG_INFO"]).inserted_id
         logger.info("Checked info. Added successfully")
         update.message.reply_text(
             text='✅ Препарат успішно додано до бази даних',
@@ -612,13 +615,13 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
                                              input_field_placeholder="Оберіть опцію")
         )
 
-        logger.info("Clearing info: %s", DRUG_INFO)
-        DRUG_INFO["name"] = ""
-        DRUG_INFO["active_ingredient"] = ""
-        DRUG_INFO["description"] = ""
-        DRUG_INFO["code"] = ""
-        DRUG_INFO["photo"] = b''
-        DRUG_INFO["user_id"] = 0
+        logger.info("Clearing info: %s", context.user_data["DRUG_INFO"])
+        context.user_data["DRUG_INFO"]["name"] = ""
+        context.user_data["DRUG_INFO"]["active_ingredient"] = ""
+        context.user_data["DRUG_INFO"]["description"] = ""
+        context.user_data["DRUG_INFO"]["code"] = ""
+        context.user_data["DRUG_INFO"]["photo"] = b''
+        context.user_data["DRUG_INFO"]["user_id"] = 0
         logger.info("Cleared")
 
     elif update.message.text == 'Змінити інформацію':
@@ -678,13 +681,13 @@ def change_info(update: Update, context: CallbackContext) -> int:
 @under_maintenance
 def rewrite(update: Update, context: CallbackContext) -> check_info:
     if context.user_data["change"] == "name":
-        DRUG_INFO["name"] = update.message.text
+        context.user_data["DRUG_INFO"]["name"] = update.message.text
         return check_info(update=update, context=context)
     if context.user_data["change"] == "active_ingredient":
-        DRUG_INFO["active_ingredient"] = update.message.text
+        context.user_data["DRUG_INFO"]["active_ingredient"] = update.message.text
         return check_info(update=update, context=context)
     if context.user_data["change"] == "description":
-        DRUG_INFO["description"] = update.message.text
+        context.user_data["DRUG_INFO"]["description"] = update.message.text
         return check_info(update=update, context=context)
 
 
@@ -860,20 +863,23 @@ def cancel_register(update: Update, context: CallbackContext):
 @under_maintenance
 def start_report(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
-    if DRUG_INFO["code"] == "":
+
+    drug_info = context.user_data.setdefault("DRUG_INFO", {})
+
+    if drug_info.setdefault("code", '') == "":
         update.message.reply_text(
             text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
         )
         scan_handler(update=update, context=context)
         return ConversationHandler.END
-    if db_check_availability(DRUG_INFO["code"]) is False:
+    if db_check_availability(drug_info["code"]) is False:
         update.message.reply_text(
             text="⚠️️️ Ви не можете повідомити про штрих-код, що відсутній у базі баних"
         )
         return cancel_report(update=update, context=context)
 
     update.message.reply_text(
-        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{DRUG_INFO['code']}__*"
+        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{drug_info['code']}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -891,13 +897,15 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    document = collection.find_one({"code": DRUG_INFO["code"]})
+    drug_info = context.user_data["DRUG_INFO"]
+
+    document = collection.find_one({"code": drug_info["code"]})
     if "report" in document:
         number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
-        collection.update_one({"code": DRUG_INFO["code"]},
+        collection.update_one({"code": drug_info["code"]},
                               {"$set": {"report": document["report"] + f", [{number + 1}]: " + report_description}})
     else:
-        collection.update_one({"code": DRUG_INFO["code"]}, {"$set": {"report": "[1]: " + report_description}})
+        collection.update_one({"code": drug_info["code"]}, {"$set": {"report": "[1]: " + report_description}})
 
     update.message.reply_text(
         text="✅️ Дякуємо. Ви успішно повідомили про проблему",
@@ -920,6 +928,8 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію')
     )
+
+    context.user_data["DRUG_INFO"]["code"] = ''
     return ConversationHandler.END
 
 

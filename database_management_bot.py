@@ -50,7 +50,7 @@ REASON, BAN = range(2)
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
-UNDER_MAINTENANCE = False
+UNDER_MAINTENANCE = True
 
 
 def under_maintenance(func):
@@ -567,7 +567,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
         os.remove("photo.jpg")
-    elif update.message.text and drug_info["photo"] == b'':
+    elif update.message.text and drug_info.setdefault("photo", b'') == b'':
         update.message.reply_text(
             text='<b>Введена інформація:</b>\n\n' +
                  '⚠️ Фото відсутнє\n' + output +
@@ -606,7 +606,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         context.user_data["DRUG_INFO"]["user_id"] = user_id
         context.user_data["DRUG_INFO"]["added_on"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
 
-        post_id = collection.insert_one(context.user_data["DRUG_INFO"]).inserted_id
+        collection.insert_one(context.user_data["DRUG_INFO"])
         logger.info("Checked info. Added successfully")
         update.message.reply_text(
             text='✅ Препарат успішно додано до бази даних',
@@ -616,12 +616,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         )
 
         logger.info("Clearing info: %s", context.user_data["DRUG_INFO"])
-        context.user_data["DRUG_INFO"]["name"] = ""
-        context.user_data["DRUG_INFO"]["active_ingredient"] = ""
-        context.user_data["DRUG_INFO"]["description"] = ""
-        context.user_data["DRUG_INFO"]["code"] = ""
-        context.user_data["DRUG_INFO"]["photo"] = b''
-        context.user_data["DRUG_INFO"]["user_id"] = 0
+        context.user_data["DRUG_INFO"].clear()
         logger.info("Cleared")
 
     elif update.message.text == 'Змінити інформацію':

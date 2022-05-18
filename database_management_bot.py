@@ -322,7 +322,6 @@ def start_adding(update: Update, context: CallbackContext) -> int:
         update.message.reply_text(
             'Добре.\nСпершу, надішліть фото штрих-коду',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder='Надішліть фото')
         )
@@ -333,7 +332,6 @@ def start_adding(update: Update, context: CallbackContext) -> int:
         update.message.reply_text(
             'Добре.\nСпершу, надішліть назву медикаменту',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder='Введіть назву')
         )
@@ -365,7 +363,6 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
                 text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
                 quote=True,
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
                                                  resize_keyboard=True)
             )
 
@@ -378,7 +375,6 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
                 text="Штрих-код відскановано успішно ✅",
                 quote=True,
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
                                                  resize_keyboard=True)
             )
 
@@ -401,7 +397,6 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     update.message.reply_text(
         text='Надішліть назву медикаменту',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
                                          resize_keyboard=True,
                                          input_field_placeholder="Введіть назву")
     )
@@ -424,7 +419,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
             text='*Вкажіть, будь ласка, корректну назву*'
                  f'\n\nПоточна назва "{name}" містить тільки цифри',
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              resize_keyboard=True,
                                              input_field_placeholder="Повторіть ввід"),
         )
@@ -436,7 +431,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text='Вкажіть, будь ласка, діючу речовину медикаменту',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          resize_keyboard=True,
                                          input_field_placeholder="Введіть діючу речовину"),
     )
@@ -459,7 +454,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
             text='*Вкажіть, будь ласка, корректну назву діючої речовини*'
                  f'\n\nПоточна назва діючої речовини "{active_ingredient}" містить тільки цифри',
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              resize_keyboard=True,
                                              input_field_placeholder="Повторіть ввід"),
         )
@@ -471,7 +466,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text='Тепер надішліть короткий опис даного препарату',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          resize_keyboard=True,
                                          input_field_placeholder="Введіть опис")
     )
@@ -496,7 +491,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
             update.message.reply_text(
                 text=f'Вкажіть, будь ласка, опис українською мовою'
                      f'\n\nПоточна мова: {validators.check_description(description)}',
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                                  resize_keyboard=True,
                                                  input_field_placeholder="Повторіть ввід"),
             )
@@ -509,7 +504,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text=f'Мені не вдалося розпізнати мову введеного тексту. Введіть, будь ласка, коректний опис!',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              resize_keyboard=True,
                                              input_field_placeholder="Повторіть ввід"),
         )
@@ -520,7 +515,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text='Також, надішліть фото передньої сторони упаковки медикаменту.'
              '\n\n(Не рекомендується) Натисніть "Пропустити", якщо не хочете додавати фото',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          resize_keyboard=True,
                                          input_field_placeholder="Надішліть фото")
     )
@@ -562,7 +557,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
             caption='<b>Введена інформація:</b>\n\n' + output +
                     '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
@@ -573,7 +568,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
                  '⚠️ Фото відсутнє\n' + output +
                  '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
@@ -586,7 +581,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
             caption='<b>Введена інформація:</b>\n\n' + output +
                     '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )

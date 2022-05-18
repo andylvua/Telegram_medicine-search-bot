@@ -2,6 +2,8 @@
 Author: Andrew Yaroshevych
 Version: 2.4.0
 """
+from functools import wraps
+
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
     ConversationHandler
@@ -35,8 +37,6 @@ cluster = MongoClient(config['Database']['cluster'])
 db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 
-GOOGLE_SEARCH = "True"
-
 # Conversation states
 REVIEW = 1
 REPORT = 1
@@ -46,10 +46,32 @@ MAIN_REPLY_KEYBOARD = [['Сканувати', 'Пошук'], ['Інструкц�
 
 DRUG_CODE = ''
 
+UNDER_MAINTENANCE = True
 
+
+def under_maintenance(func):
+    @wraps(func)
+    def wrapped(update, context, *args, **kwargs):
+        user_id = int(update.effective_user.id)
+
+        if user_id != 483571608 and UNDER_MAINTENANCE is True:
+            logger.info("Unauthorized maintenance access denied ID: {}".format(user_id))
+
+            update.message.reply_text(
+                "❌ *The bot is under maintenance*",
+                parse_mode="MarkdownV2"
+            )
+            return
+        else:
+            logger.info("Maintenance access granted")
+
+        return func(update, context, *args, **kwargs)
+    return wrapped
+
+
+@under_maintenance
 def start_handler(update: Update, context: CallbackContext) -> None:
-    global GOOGLE_SEARCH
-    GOOGLE_SEARCH = "True"
+    context.user_data["GOOGLE_SEARCH"] = "True"
 
     global DRUG_CODE
     DRUG_CODE = ''
@@ -72,6 +94,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -87,6 +110,7 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def end_scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -101,6 +125,7 @@ def end_scan_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def instructions_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -132,6 +157,7 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
                                )
 
 
+@under_maintenance
 def goto_scan(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -187,6 +213,7 @@ def retrieve_db_photo(code_str) -> Image or None:
 
 
 # noinspection DuplicatedCode
+@under_maintenance
 def retrieve_results(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: Photo received", user.first_name)
@@ -247,7 +274,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                            'скористайтесь нашим другим ботом <b>@msb_database_bot</b>',
                                       quote=True)
 
-        if GOOGLE_SEARCH == "True":
+        if context.user_data["GOOGLE_SEARCH"] == "True":
             update.message.reply_text(parse_mode='HTML',
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
@@ -291,6 +318,7 @@ def get_query_heading(barcode) -> str:
     return first_heading_formatted
 
 
+@under_maintenance
 def file_warning(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: File warning", user.first_name)
@@ -306,6 +334,7 @@ def file_warning(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def undefined_input(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -319,6 +348,7 @@ def undefined_input(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def cancel_operation(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -333,6 +363,7 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def tell_about(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -354,9 +385,10 @@ def tell_about(update: Update, context: CallbackContext) -> None:
                                )
 
 
+@under_maintenance
 def settings(update: Update, context: CallbackContext) -> None:
     """Sends a message with three inline buttons attached."""
-    if GOOGLE_SEARCH == "True":
+    if context.user_data["GOOGLE_SEARCH"] == "True":
         keyboard = [
             [
                 InlineKeyboardButton("Ввімкнено ✅", callback_data="True"),
@@ -379,16 +411,16 @@ def settings(update: Update, context: CallbackContext) -> None:
                               parse_mode="MarkdownV2")
 
 
+@under_maintenance
 def google_search_set(update: Update, context: CallbackContext) -> None:
     """Parses the CallbackQuery and updates the message text."""
-    global GOOGLE_SEARCH
     query = update.callback_query
 
     query.answer()
 
-    GOOGLE_SEARCH = query.data
+    context.user_data["GOOGLE_SEARCH"] = query.data
 
-    if GOOGLE_SEARCH == "True":
+    if context.user_data["GOOGLE_SEARCH"] == "True":
         keyboard = [
             [
                 InlineKeyboardButton("Ввімкнено ✅", callback_data="True"),
@@ -411,6 +443,7 @@ def google_search_set(update: Update, context: CallbackContext) -> None:
                             parse_mode="MarkdownV2")
 
 
+@under_maintenance
 def start_review(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
@@ -426,6 +459,7 @@ def start_review(update: Update, context: CallbackContext) -> int:
     return REVIEW
 
 
+@under_maintenance
 def send_review(update: Update, context: CallbackContext) -> ConversationHandler.END:
     review_msg = update.message.text
     user = update.message.from_user
@@ -520,6 +554,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
     return ConversationHandler.END
 
 
+@under_maintenance
 def cancel_report(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -532,6 +567,7 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
     return ConversationHandler.END
 
 
+@under_maintenance
 def start_report(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
     if DRUG_CODE == "":
@@ -558,6 +594,7 @@ def start_report(update: Update, context: CallbackContext) -> int:
     return REPORT
 
 
+@under_maintenance
 def add_report_description(update: Update, context: CallbackContext) -> ConversationHandler.END:
     report_description = update.message.text
     logger.info("User reported: %s", report_description)
@@ -582,6 +619,7 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     return ConversationHandler.END
 
 
+@under_maintenance
 def start_search(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
@@ -596,6 +634,7 @@ def start_search(update: Update, context: CallbackContext) -> int:
     return SEARCH
 
 
+@under_maintenance
 def search_by_name(update: Update, context: CallbackContext) -> ConversationHandler.END:
     query = update.message.text
 
@@ -662,6 +701,7 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
     return ConversationHandler.END
 
 
+@under_maintenance
 def search_by_barcode(update: Update, context: CallbackContext) -> ConversationHandler.END:
     code_str = update.message.text
 
@@ -718,6 +758,7 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
     return ConversationHandler.END
 
 
+@under_maintenance
 def cancel_search(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 

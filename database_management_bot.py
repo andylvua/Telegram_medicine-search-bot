@@ -59,6 +59,28 @@ DRUG_INFO = {
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
+UNDER_MAINTENANCE = True
+
+
+def under_maintenance(func):
+    @wraps(func)
+    def wrapped(update, context, *args, **kwargs):
+        user_id = int(update.effective_user.id)
+
+        if user_id != 483571608:
+            logger.info("Unauthorized maintenance access denied ID: {}".format(user_id))
+
+            update.message.reply_text(
+                "❌ *The bot is under maintenance*",
+                parse_mode="MarkdownV2"
+            )
+            return
+        else:
+            logger.info("Maintenance access granted")
+
+        return func(update, context, *args, **kwargs)
+    return wrapped
+
 
 def superuser(func):
     @wraps(func)
@@ -113,6 +135,7 @@ def restricted(func):
     return wrapped
 
 
+@under_maintenance
 def start_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -132,6 +155,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s. Scan started", user.first_name, update.message.text)
@@ -191,6 +215,7 @@ def retrieve_db_photo(code_str) -> Image or None:
         return
 
 
+@under_maintenance
 def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: Photo received", user.first_name)
@@ -282,6 +307,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         os.remove("code.png")
 
 
+@under_maintenance
 @restricted
 def start_adding(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
@@ -313,6 +339,7 @@ def start_adding(update: Update, context: CallbackContext) -> int:
         return INGREDIENT
 
 
+@under_maintenance
 def get_name(update: Update, context: CallbackContext) -> int or None:
     logger.info("Storing photo")
 
@@ -381,6 +408,7 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     return INGREDIENT
 
 
+@under_maintenance
 def get_active_ingredient(update: Update, context: CallbackContext) -> int:
     logger.info("Entered name of the drug: %s", update.message.text)
 
@@ -415,6 +443,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
     return ABOUT
 
 
+@under_maintenance
 def get_about(update: Update, context: CallbackContext) -> int:
     logger.info("Entered active ingredient of the drug: %s", update.message.text)
 
@@ -449,6 +478,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
     return PHOTO
 
 
+@under_maintenance
 def get_photo(update: Update, context: CallbackContext) -> int:
     logger.info("Entered description: %s. Asking for a photo", update.message.text)
 
@@ -496,10 +526,12 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     return CHECK
 
 
+@under_maintenance
 def skip_photo(update: Update, context: CallbackContext) -> int:
     return CHECK
 
 
+@under_maintenance
 def check_info(update: Update, context: CallbackContext) -> int:
     logger.info("Now checking info")
 
@@ -559,6 +591,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
     return INSERT
 
 
+@under_maintenance
 def insert_to_db(update: Update, context: CallbackContext) -> int or ConversationHandler.END:
     user = update.message.from_user
 
@@ -610,6 +643,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
     return ConversationHandler.END
 
 
+@under_maintenance
 def change_info(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати додавання']]
 
@@ -641,6 +675,7 @@ def change_info(update: Update, context: CallbackContext) -> int:
     return REWRITE
 
 
+@under_maintenance
 def rewrite(update: Update, context: CallbackContext) -> check_info:
     if context.user_data["change"] == "name":
         DRUG_INFO["name"] = update.message.text
@@ -653,6 +688,7 @@ def rewrite(update: Update, context: CallbackContext) -> check_info:
         return check_info(update=update, context=context)
 
 
+@under_maintenance
 def cancel(update: Update, context: CallbackContext) -> ConversationHandler.END:
     user = update.message.from_user
     reply_keyboard = MAIN_REPLY_KEYBOARD
@@ -668,6 +704,7 @@ def cancel(update: Update, context: CallbackContext) -> ConversationHandler.END:
     return ConversationHandler.END
 
 
+@under_maintenance
 def file_warning(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: File warning", user.first_name)
@@ -684,6 +721,7 @@ def file_warning(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -706,6 +744,7 @@ def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
         )
 
 
+@under_maintenance
 def instructions_handler(update: Update, context: CallbackContext) -> ConversationHandler.END:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -742,6 +781,7 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
     return ConversationHandler.END
 
 
+@under_maintenance
 def register(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     user_id = update.effective_user.id
@@ -777,6 +817,7 @@ def register(update: Update, context: CallbackContext) -> int:
     return CONTACT
 
 
+@under_maintenance
 def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.END:
     logger.info("User send contact")
 
@@ -802,6 +843,7 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
     return ConversationHandler.END
 
 
+@under_maintenance
 def cancel_register(update: Update, context: CallbackContext):
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -815,6 +857,7 @@ def cancel_register(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
+@under_maintenance
 def start_report(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
     if DRUG_INFO["code"] == "":
@@ -841,6 +884,7 @@ def start_report(update: Update, context: CallbackContext) -> int:
     return REPORT
 
 
+@under_maintenance
 def add_report_description(update: Update, context: CallbackContext) -> ConversationHandler.END:
     report_description = update.message.text
     logger.info("User reported: %s", report_description)
@@ -865,6 +909,7 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     return ConversationHandler.END
 
 
+@under_maintenance
 def cancel_report(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -878,6 +923,7 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
     return ConversationHandler.END
 
 
+@under_maintenance
 def cancel_default(update: Update, context: CallbackContext) -> None:
     reply_keyboard = MAIN_REPLY_KEYBOARD
     update.message.reply_text(
@@ -889,6 +935,7 @@ def cancel_default(update: Update, context: CallbackContext) -> None:
     )
 
 
+@under_maintenance
 def start_review(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
@@ -904,6 +951,7 @@ def start_review(update: Update, context: CallbackContext) -> int:
     return REVIEW
 
 
+@under_maintenance
 def send_review(update: Update, context: CallbackContext) -> ConversationHandler.END:
     review_msg = update.message.text
     user = update.message.from_user
@@ -1000,6 +1048,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
     return ConversationHandler.END
 
 
+@under_maintenance
 @superuser
 def statistics_for_user(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
@@ -1024,6 +1073,7 @@ def get_banned_info(user_id):
     return "\nІнформація: " + json.dumps(banned_info, sort_keys=False, ensure_ascii=False, indent=4)
 
 
+@under_maintenance
 def show_statistics(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = [['Завершити']]
 
@@ -1090,6 +1140,7 @@ def show_statistics(update: Update, context: CallbackContext) -> ConversationHan
     return SEND_FILES
 
 
+@under_maintenance
 def send_files(update: Update, context: CallbackContext) -> ConversationHandler.END:
     entered_id = context.user_data["entered_id"]
 
@@ -1133,6 +1184,7 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
     return SEND_FILES
 
 
+@under_maintenance
 def cancel_statistics(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -1146,6 +1198,7 @@ def cancel_statistics(update: Update, context: CallbackContext) -> ConversationH
     return ConversationHandler.END
 
 
+@under_maintenance
 @superuser
 def start_ban(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
@@ -1160,6 +1213,7 @@ def start_ban(update: Update, context: CallbackContext) -> int:
     return REASON
 
 
+@under_maintenance
 def get_reason(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
@@ -1175,6 +1229,7 @@ def get_reason(update: Update, context: CallbackContext) -> int:
     return BAN
 
 
+@under_maintenance
 def ban_user(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -1198,6 +1253,7 @@ def ban_user(update: Update, context: CallbackContext) -> ConversationHandler.EN
     return ConversationHandler.END
 
 
+@under_maintenance
 def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.END:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 

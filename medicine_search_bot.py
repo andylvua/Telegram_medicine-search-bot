@@ -86,8 +86,6 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     :return: None
     """
 
-    print(context.user_data)
-
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -217,17 +215,17 @@ def goto_scan(update: Update, context: CallbackContext) -> None:
     return scan_handler(update=update, context=context)
 
 
-def db_check_availability(code_int) -> bool or None:
+def db_check_availability(barcode) -> bool or None:
     """
     The db_check_availability function checks if the code is already in the database.
     If it is, it returns True. If not, it returns False.
 
-    :param code_int: Check if the code is already in the database
+    :param barcode: Check if the code is already in the database
     :return: A boolean value
     """
     try:
         logger.info("Database quired. Checking availability")
-        if collection.count_documents({"code": code_int}) != 0:
+        if collection.count_documents({"code": barcode}) != 0:
             return True
         else:
             return False
@@ -236,17 +234,17 @@ def db_check_availability(code_int) -> bool or None:
         return
 
 
-def retrieve_db_query(code_int) -> str or None:
+def retrieve_db_query(barcode) -> str or None:
     """
-    The retrieve_db_query function takes a code_int as an argument and returns the formatted result of a MongoDB query.
+    The retrieve_db_query function takes a barcode as an argument and returns the formatted result of a MongoDB query.
     The function will return None if no results are found.
 
-    :param code_int: Specify the code of the medicine that we want to retrieve from the database
+    :param barcode: Specify the code of the medicine that we want to retrieve from the database
     :return: The formatted query result str_output
     """
     try:
         logger.info("Database quired. Retrieving info")
-        query_result = collection.find_one({"code": code_int}, {"_id": 0})
+        query_result = collection.find_one({"code": barcode}, {"_id": 0})
         str_output = f"<b>Назва</b>: {query_result['name']} " \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
                      f"\n<b>Опис</b>: {query_result['description']} "
@@ -256,17 +254,17 @@ def retrieve_db_query(code_int) -> str or None:
         return
 
 
-def retrieve_db_photo(code_int) -> Image or None:
+def retrieve_db_photo(barcode) -> Image or None:
     """
     The retrieve_db_photo function retrieves a photo from the database.
-    It takes in an integer code as its parameter, and returns an Image object if it exists in the database,
+    It takes in a barcode as its parameter, and returns an Image object if it exists in the database,
     otherwise it returns None.
 
-    :param code_int: Specify the code of the photo that is going to be retrieved from the database
+    :param barcode: Specify the code of the photo that is going to be retrieved from the database
     :return: An image object
     """
     try:
-        query_result = collection.find_one({"code": code_int}, {"_id": 0})
+        query_result = collection.find_one({"code": barcode}, {"_id": 0})
         logger.info("Database quired")
 
         if query_result['photo'] == b'':
@@ -324,14 +322,14 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
 
     try:
         result = decode(Image.open('code.png'))
-        code_int = int(result[0].data.decode("utf-8"))
-        link = 'https://www.google.com/search?q=' + str(code_int)
+        barcode = result[0].data.decode("utf-8")
+        link = 'https://www.google.com/search?q=' + barcode
 
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
 
-        if db_check_availability(code_int) and retrieve_db_photo(code_int) is not None:
+        if db_check_availability(barcode) and retrieve_db_photo(barcode) is not None:
             logger.info("The barcode is present in the database")
-            img = retrieve_db_photo(code_int)
+            img = retrieve_db_photo(barcode)
             img.save("retrieved_image.jpg")
 
             update.message.reply_photo(
@@ -340,19 +338,19 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                caption='Ось відсканований штрихкод ✅:\n' + '<b>' + str(code_int) + '</b>' + "\n\n" +
-                        retrieve_db_query(code_int),
+                caption='Ось відсканований штрихкод ✅:\n' + '<b>' + barcode + '</b>' + "\n\n" +
+                        retrieve_db_query(barcode),
             )
 
             os.remove("retrieved_image.jpg")
-        elif db_check_availability(code_int):
+        elif db_check_availability(barcode):
             update.message.reply_text(
                 parse_mode='HTML',
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                text='Ось відсканований штрихкод ✅:\n' + '<b>' + str(code_int) + '</b>' + "\n\n" +
-                     retrieve_db_query(code_int) + "\n\n⚠️ Фото відсутнє",
+                text='Ось відсканований штрихкод ✅:\n' + '<b>' + barcode + '</b>' + "\n\n" +
+                     retrieve_db_query(barcode) + "\n\n⚠️ Фото відсутнє",
                 quote=True
             )
         else:
@@ -362,7 +360,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
                                                                        input_field_placeholder='Продовжуйте'),
-                                      text='Штрих-код ' + '<b>' + str(code_int) + '</b>' +
+                                      text='Штрих-код ' + '<b>' + barcode + '</b>' +
                                            ' на жаль відсутній у моїй базі даних ❌'
                                            '\n\nЯкщо ви хочете долучитись до наповнення бази даних - '
                                            'скористайтесь нашим другим ботом <b>@msb_database_bot</b>',
@@ -373,11 +371,11 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
                                                                        input_field_placeholder='Продовжуйте'),
-                                      text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(code_int) +
+                                      text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(barcode) +
                                            ' - (За результатами пошуку ' + f'<a href="{link}"><b>Google</b></a>' + ')',
                                       disable_web_page_preview=True)
 
-        context.user_data["DRUG_CODE"] = code_int
+        context.user_data["DRUG_CODE"] = barcode
     except IndexError as e:
         logger.info(e)
 
@@ -396,15 +394,15 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
         os.remove("code.png")
 
 
-def get_query_heading(code_int) -> str:
+def get_query_heading(barcode) -> str:
     """
     The get_query_heading function takes a string of the form '0123456789' and returns
     the heading of the first Google search result for that string.
 
-    :param code_int: Barcode for the Google search
+    :param barcode: Barcode for the Google search
     :return: A string containing the first heading of a search query
     """
-    url = 'https://google.com/search?q=' + str(code_int)
+    url = 'https://google.com/search?q=' + barcode
 
     request_result = requests.get(url)
     soup = bs4.BeautifulSoup(request_result.text, "html.parser")
@@ -413,7 +411,7 @@ def get_query_heading(code_int) -> str:
     first_heading = heading_objects[0]
 
     first_heading_formatted = re.sub(r"\([^()]*\)", "", first_heading.getText().split(' - ')[0]
-                                     .replace(str(code_int), '')).lstrip().rstrip('.').rstrip()
+                                     .replace(barcode, '')).lstrip().rstrip('.').rstrip()
     return first_heading_formatted
 
 
@@ -807,7 +805,7 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     if "report" in document:
         number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": drug_code},
-                              {"$set": {"report": document["report"] + f",\n[{number + 1}]: " + report_description}})
+                              {"$set": {"report": document["report"] + f", [{number + 1}]: " + report_description}})
     else:
         collection.update_one({"code": drug_code}, {"$set": {"report": "[1]: " + report_description}})
 
@@ -861,7 +859,7 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
 
     logger.info("Entered query: %s", query)
 
-    medicine_by_name = collection.find({'$text': {'$search': query}},
+    medicine_by_name = collection.find({'$text': {'$search': f"/^{query}/"}},
                                        {'score': {'$meta': "textScore"}}).limit(3)
 
     medicine_by_name.sort([('score', {'$meta': 'textScore'})])
@@ -933,11 +931,11 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
     :param context:CallbackContext: Keep track of the user's conversation flow
     :return: ConversationHandler.END
     """
-    code_int = int(update.message.text)
+    barcode = update.message.text
 
-    logger.info("Entered barcode: %s", code_int)
+    logger.info("Entered barcode: %s", barcode)
 
-    medicine_by_barcode = collection.find_one({"code": code_int}, {"_id": 0, "report": 0})
+    medicine_by_barcode = collection.find_one({"code": barcode}, {"_id": 0, "report": 0})
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 

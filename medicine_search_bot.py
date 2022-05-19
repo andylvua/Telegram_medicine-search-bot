@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.4.0
+Version: 2.5.0 Development
 """
 from functools import wraps
 

@@ -8,7 +8,7 @@ from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKey
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
     ConversationHandler
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from pyzbar.pyzbar import decode
 from email.message import EmailMessage
 
@@ -48,6 +48,13 @@ UNDER_MAINTENANCE = True
 
 
 def under_maintenance(func):
+    """
+    The under_maintenance function is a decorator that checks if the bot is under maintenance.
+    If it is, then it will not allow access to any commands of the bot.
+
+    :param func: Keep the original function name
+    :return: The wrapped function
+    """
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         user_id = int(update.effective_user.id)
@@ -69,6 +76,15 @@ def under_maintenance(func):
 
 @under_maintenance
 def start_handler(update: Update, context: CallbackContext) -> None:
+    """
+    The start_handler function is called when the user sends a message to the bot
+    that contains the command /start. It is used to introduce users to our bot and
+    to help them interact with it.
+
+    :param update:Update: Access the message object
+    :param context:CallbackContext: Store data that will be passed between the callback functions
+    :return: None
+    """
 
     print(context.user_data)
 
@@ -92,6 +108,13 @@ def start_handler(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def scan_handler(update: Update, context: CallbackContext) -> None:
+    """
+    The scan_handler function is used to tell user to scan the barcode on a package.
+
+    :param update:Update: Access the message that was sent by the user
+    :param context:CallbackContext: Pass data between the callback functions
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -108,6 +131,15 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def end_scan_handler(update: Update, context: CallbackContext) -> None:
+    """
+    The end_scan_handler function is called when the user sends a message to the bot
+    that contains /cancel command. It is used to notify the user that scanning has ended and
+    to return them to the main menu.
+
+    :param update:Update: Access the message object
+    :param context:CallbackContext: Access user data
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -123,6 +155,16 @@ def end_scan_handler(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def instructions_handler(update: Update, context: CallbackContext) -> None:
+    """
+    The instructions_handler function is called whenever the user sends a message that matches
+    the regular expression '^(Інструкції|/help)$'.
+    It is used to send instructions to users.
+
+
+    :param update:Update: Access the message object
+    :param context:CallbackContext: Send data back to the bot
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -155,6 +197,15 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def goto_scan(update: Update, context: CallbackContext) -> None:
+    """
+    The goto_scan function is called in order to call scan_handler.
+    It will remove any reply_keyboard that is present and
+    tells the user that they can scan their documents.
+
+    :param update:Update: Access the message that was sent by the user
+    :param context:CallbackContext: Keep the user's data
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -166,10 +217,17 @@ def goto_scan(update: Update, context: CallbackContext) -> None:
     return scan_handler(update=update, context=context)
 
 
-def db_check_availability(code_str) -> bool or None:
+def db_check_availability(code_int) -> bool or None:
+    """
+    The db_check_availability function checks if the code is already in the database.
+    If it is, it returns True. If not, it returns False.
+
+    :param code_int: Check if the code is already in the database
+    :return: A boolean value
+    """
     try:
         logger.info("Database quired. Checking availability")
-        if collection.count_documents({"code": code_str}) != 0:
+        if collection.count_documents({"code": code_int}) != 0:
             return True
         else:
             return False
@@ -178,10 +236,17 @@ def db_check_availability(code_str) -> bool or None:
         return
 
 
-def retrieve_db_query(code_str) -> str or None:
+def retrieve_db_query(code_int) -> str or None:
+    """
+    The retrieve_db_query function takes a code_int as an argument and returns the formatted result of a MongoDB query.
+    The function will return None if no results are found.
+
+    :param code_int: Specify the code of the medicine that we want to retrieve from the database
+    :return: The formatted query result str_output
+    """
     try:
         logger.info("Database quired. Retrieving info")
-        query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        query_result = collection.find_one({"code": code_int}, {"_id": 0})
         str_output = f"<b>Назва</b>: {query_result['name']} " \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
                      f"\n<b>Опис</b>: {query_result['description']} "
@@ -191,9 +256,17 @@ def retrieve_db_query(code_str) -> str or None:
         return
 
 
-def retrieve_db_photo(code_str) -> Image or None:
+def retrieve_db_photo(code_int) -> Image or None:
+    """
+    The retrieve_db_photo function retrieves a photo from the database.
+    It takes in an integer code as its parameter, and returns an Image object if it exists in the database,
+    otherwise it returns None.
+
+    :param code_int: Specify the code of the photo that is going to be retrieved from the database
+    :return: An image object
+    """
     try:
-        query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        query_result = collection.find_one({"code": code_int}, {"_id": 0})
         logger.info("Database quired")
 
         if query_result['photo'] == b'':
@@ -206,6 +279,29 @@ def retrieve_db_photo(code_str) -> Image or None:
     except Exception as e:
         logger.info(e)
         return
+
+
+def scanned_barcode_image(path='code_png'):
+    """
+    The scanned_barcode_image function takes a path to an image file and draws a rectangle around the detected barcode.
+    :param path: Specify the path of the barcode image
+    :return: An image with the barcode highlighted
+    """
+    image = Image.open(path)
+    draw = ImageDraw.Draw(image)
+
+    for barcode in decode(image):
+        rect = barcode.rect
+        draw.rectangle(
+            (
+                (rect.left, rect.top),
+                (rect.left + rect.width, rect.top + rect.height)
+            ),
+            outline='#c4102e',
+            width=5
+        )
+
+    image.save('bounding_barode_box.png')
 
 
 # noinspection DuplicatedCode
@@ -224,16 +320,18 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
     new_file = context.bot.get_file(foto.file_id)
     new_file.download('code.png')
 
+    # scanned_barcode_image()
+
     try:
         result = decode(Image.open('code.png'))
-        code_str = result[0].data.decode("utf-8")
-        link = 'https://www.google.com/search?q=' + code_str
+        code_int = int(result[0].data.decode("utf-8"))
+        link = 'https://www.google.com/search?q=' + str(code_int)
 
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
 
-        if db_check_availability(code_str) and retrieve_db_photo(code_str) is not None:
+        if db_check_availability(code_int) and retrieve_db_photo(code_int) is not None:
             logger.info("The barcode is present in the database")
-            img = retrieve_db_photo(code_str)
+            img = retrieve_db_photo(code_int)
             img.save("retrieved_image.jpg")
 
             update.message.reply_photo(
@@ -242,19 +340,19 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                caption='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' + "\n\n" +
-                        retrieve_db_query(code_str),
+                caption='Ось відсканований штрихкод ✅:\n' + '<b>' + str(code_int) + '</b>' + "\n\n" +
+                        retrieve_db_query(code_int),
             )
 
             os.remove("retrieved_image.jpg")
-        elif db_check_availability(code_str):
+        elif db_check_availability(code_int):
             update.message.reply_text(
                 parse_mode='HTML',
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                text='Ось відсканований штрихкод ✅:\n' + '<b>' + code_str + '</b>' + "\n\n" +
-                     retrieve_db_query(code_str) + "\n\n⚠️ Фото відсутнє",
+                text='Ось відсканований штрихкод ✅:\n' + '<b>' + str(code_int) + '</b>' + "\n\n" +
+                     retrieve_db_query(code_int) + "\n\n⚠️ Фото відсутнє",
                 quote=True
             )
         else:
@@ -264,7 +362,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
                                                                        input_field_placeholder='Продовжуйте'),
-                                      text='Штрих-код ' + '<b>' + code_str + '</b>' +
+                                      text='Штрих-код ' + '<b>' + str(code_int) + '</b>' +
                                            ' на жаль відсутній у моїй базі даних ❌'
                                            '\n\nЯкщо ви хочете долучитись до наповнення бази даних - '
                                            'скористайтесь нашим другим ботом <b>@msb_database_bot</b>',
@@ -275,11 +373,11 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                                        resize_keyboard=True,
                                                                        input_field_placeholder='Продовжуйте'),
-                                      text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(code_str) +
+                                      text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(code_int) +
                                            ' - (За результатами пошуку ' + f'<a href="{link}"><b>Google</b></a>' + ')',
                                       disable_web_page_preview=True)
 
-        context.user_data["DRUG_CODE"] = code_str
+        context.user_data["DRUG_CODE"] = code_int
     except IndexError as e:
         logger.info(e)
 
@@ -298,8 +396,15 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
         os.remove("code.png")
 
 
-def get_query_heading(barcode) -> str:
-    url = 'https://google.com/search?q=' + barcode
+def get_query_heading(code_int) -> str:
+    """
+    The get_query_heading function takes a string of the form '0123456789' and returns
+    the heading of the first Google search result for that string.
+
+    :param code_int: Barcode for the Google search
+    :return: A string containing the first heading of a search query
+    """
+    url = 'https://google.com/search?q=' + str(code_int)
 
     request_result = requests.get(url)
     soup = bs4.BeautifulSoup(request_result.text, "html.parser")
@@ -308,12 +413,21 @@ def get_query_heading(barcode) -> str:
     first_heading = heading_objects[0]
 
     first_heading_formatted = re.sub(r"\([^()]*\)", "", first_heading.getText().split(' - ')[0]
-                                     .replace(str(barcode), '')).lstrip().rstrip('.').rstrip()
+                                     .replace(str(code_int), '')).lstrip().rstrip('.').rstrip()
     return first_heading_formatted
 
 
 @under_maintenance
 def file_warning(update: Update, context: CallbackContext) -> None:
+    """
+    The file_warning function is called when a user sends a file instead of an image.
+    It will reply with the following message:
+    'Будь ласка, використовуйте фотографію, а не файл.'
+
+    :param update:Update: Access the message that was sent by the user
+    :param context:CallbackContext: Pass information between different parts of the program
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: File warning", user.first_name)
 
@@ -330,6 +444,15 @@ def file_warning(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def undefined_input(update: Update, context: CallbackContext) -> None:
+    """
+    The undefined_input function is called when the user sends a message that
+    is not recognized by any of the other handlers.
+    It simply replies with a message explaining how to use it.
+
+    :param update:Update: Pass the incoming update to the handler
+    :param context:CallbackContext: Pass data between handlers
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -344,6 +467,14 @@ def undefined_input(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def cancel_operation(update: Update, context: CallbackContext) -> None:
+    """
+    The cancel_operation function is called when the user sends /cancel to the bot.
+    It is used to cancel an ongoing operation.
+
+    :param update:Update: Access the message object
+    :param context:CallbackContext: Pass data between handlers
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -359,6 +490,14 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def tell_about(update: Update, context: CallbackContext) -> None:
+    """
+    The tell_about function is a callback function that is called when the user sends command "Про мене".
+    It will send a photo of bot logo and some information about our bot to the user.
+
+    :param update:Update: Access the message that was sent by the user
+    :param context:CallbackContext: Pass data between callbacks
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -381,6 +520,16 @@ def tell_about(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def settings(update: Update, context: CallbackContext) -> None:
+    """
+    The settings function is used to change the settings of the bot.
+    It is called when a user clicks on /settings in the Telegram app.
+    The function sends a message with two inline buttons attached,
+    each one for enabling or disabling Google search results output.
+
+    :param update:Update: Access the context of the conversation
+    :param context:CallbackContext: Store data on the bot object’s state
+    :return: A message with three inline buttons attached
+    """
     """Sends a message with three inline buttons attached."""
     if context.user_data["GOOGLE_SEARCH"] == "True":
         keyboard = [
@@ -407,6 +556,15 @@ def settings(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def google_search_set(update: Update, context: CallbackContext) -> None:
+    """
+    The google_search_set function parses the CallbackQuery and updates the message text.
+    It also creates a keyboard with two options: True or False, which are then passed to
+    the reply_markup argument of edit_message_text.
+
+    :param update:Update: Access the context of the callback query
+    :param context:CallbackContext: Store data that is shared between the callback handlers of a single query
+    :return: None
+    """
     """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
 
@@ -439,6 +597,15 @@ def google_search_set(update: Update, context: CallbackContext) -> None:
 
 @under_maintenance
 def start_review(update: Update, context: CallbackContext) -> int:
+    """
+    The start_review function is called when the user sends a message to the bot
+    with /review command. It will ask for review text.
+
+
+    :param update:Update: Access the telegram api
+    :param context:CallbackContext: Pass data between different parts of the program
+    :return: The next state of the conversation
+    """
     reply_keyboard = [['Скасувати']]
 
     update.message.reply_text(
@@ -455,6 +622,14 @@ def start_review(update: Update, context: CallbackContext) -> int:
 
 @under_maintenance
 def send_review(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    """
+    The send_review function sends a review to the MSB admins.
+    It takes in an update and context objects as parameters, and returns ConversationHandler.END.
+
+    :param update:Update: Access the telegram api
+    :param context:CallbackContext: Access data,
+    :return: Conversationhandler.END
+    """
     review_msg = update.message.text
     user = update.message.from_user
 
@@ -550,6 +725,14 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
 
 @under_maintenance
 def cancel_report(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    """
+    The cancel_report function is called when the user cancels their report.
+    It removes the drug code from context and returns to main menu.
+
+    :param update:Update: Access the telegram api
+    :param context:CallbackContext: Pass data between states
+    :return: Conversationhandler.END
+    """
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
@@ -559,17 +742,27 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
                                          input_field_placeholder='Оберіть опцію')
     )
 
-    context.user_data["DRUG_CODE"] = ''
+    context.user_data["DRUG_CODE"] = 0
     return ConversationHandler.END
 
 
 @under_maintenance
 def start_report(update: Update, context: CallbackContext) -> int:
+    """
+    The start_report function is called when the user sends a message "Повідомити про проблему" to the bot.
+    It is used to start report conversation with user.
+    It checks if there is a drug code in context and if it's not 0, and it's present in the database, then it asks for
+    a description of problem with drug from user.
+
+    :param update:Update: Access the message object
+    :param context:CallbackContext: Store data between calls
+    :return: The next state of the conversation
+    """
     reply_keyboard = [['Скасувати']]
 
-    drug_code = context.user_data.get("DRUG_CODE", '')
+    drug_code = context.user_data.get("DRUG_CODE", 0)
 
-    if drug_code == "":
+    if drug_code == 0:
         update.message.reply_text(
             text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
         )
@@ -582,7 +775,7 @@ def start_report(update: Update, context: CallbackContext) -> int:
         return cancel_report(update=update, context=context)
 
     update.message.reply_text(
-        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{drug_code}__*"
+        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{str(drug_code)}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -595,6 +788,14 @@ def start_report(update: Update, context: CallbackContext) -> int:
 
 @under_maintenance
 def add_report_description(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    """
+    The add_report_description function takes in an update and context object as arguments.
+    It then saves the report description to MongoDB, and replies with a confirmation message.
+
+    :param update:Update: Pass on any information that has been passed to the handler
+    :param context:CallbackContext: Store data in the context
+    :return: Conversationhandler.END
+    """
     report_description = update.message.text
     logger.info("User reported: %s", report_description)
 
@@ -618,12 +819,21 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
                                          input_field_placeholder='Оберіть опцію')
     )
 
-    context.user_data["DRUG_CODE"] = ''
+    context.user_data["DRUG_CODE"] = 0
     return ConversationHandler.END
 
 
 @under_maintenance
 def start_search(update: Update, context: CallbackContext) -> int:
+    """
+    The start_search function is called when the user sends a message to the bot
+    with /search command. It will prompt them for input and then search for that input in
+    the database. If it finds something, it will return a list of possible matches.
+
+    :param update:Update: Access the context of the conversation
+    :param context:CallbackContext: Keep track of the user’s conversation state
+    :return: The next state of conversation
+    """
     reply_keyboard = [['Скасувати']]
 
     update.message.reply_text(
@@ -639,6 +849,14 @@ def start_search(update: Update, context: CallbackContext) -> int:
 
 @under_maintenance
 def search_by_name(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    """
+    The search_by_name function is called if user entered name or active ingredint as search query.
+    It takes the update and context objects as arguments, and returns ConversationHandler.END to stop the conversation.
+
+    :param update:Update: Pass the incoming update to the handler function
+    :param context:CallbackContext: Pass data between callbacks
+    :return: Conversationhandler.END
+    """
     query = update.message.text
 
     logger.info("Entered query: %s", query)
@@ -706,11 +924,20 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
 
 @under_maintenance
 def search_by_barcode(update: Update, context: CallbackContext) -> ConversationHandler.END:
-    code_str = update.message.text
+    """
+    The search_by_barcode function is called if user entered barcode as search query.
+    It takes as input an Update object and a Context object,
+    and returns the ConversationHandler.END to stop the conversation.
 
-    logger.info("Entered barcode: %s", code_str)
+    :param update:Update: Pass the incoming update to the handler
+    :param context:CallbackContext: Keep track of the user's conversation flow
+    :return: ConversationHandler.END
+    """
+    code_int = int(update.message.text)
 
-    medicine_by_barcode = collection.find_one({"code": code_str}, {"_id": 0, "report": 0})
+    logger.info("Entered barcode: %s", code_int)
+
+    medicine_by_barcode = collection.find_one({"code": code_int}, {"_id": 0, "report": 0})
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -763,6 +990,14 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
 
 @under_maintenance
 def cancel_search(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    """
+    The cancel_search function is called when the user sends a message to cancel their search.
+    It will return the user back to the main menu.
+
+    :param update:Update: Access the telegram api
+    :param context:CallbackContext: Access the update_queue, dispatcher and bot attributes
+    :return: Conversationhandler.END
+    """
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(

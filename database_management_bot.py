@@ -135,7 +135,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
         "name": "",
         "active_ingredient": "",
         "description": "",
-        "code": "",
+        "code": 0,
         "photo": b'',
         "user_id": 0,
         "added_on": ''
@@ -174,10 +174,10 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
-def db_check_availability(code_str) -> bool or None:
+def db_check_availability(code_int) -> bool or None:
     try:
         logger.info("Database quired. Checking availability")
-        if collection.count_documents({"code": code_str}) != 0:
+        if collection.count_documents({"code": code_int}) != 0:
             return True
         else:
             return False
@@ -186,10 +186,10 @@ def db_check_availability(code_str) -> bool or None:
         return
 
 
-def retrieve_db_query(code_str) -> str or None:
+def retrieve_db_query(code_int) -> str or None:
     try:
         logger.info("Database quired. Retrieving info")
-        query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        query_result = collection.find_one({"code": code_int}, {"_id": 0})
         str_output = f"<b>Назва</b>: {query_result['name']} " \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
                      f"\n<b>Опис</b>: {query_result['description']} "
@@ -199,9 +199,9 @@ def retrieve_db_query(code_str) -> str or None:
         return
 
 
-def retrieve_db_photo(code_str) -> Image or None:
+def retrieve_db_photo(code_int) -> Image or None:
     try:
-        query_result = collection.find_one({"code": code_str}, {"_id": 0})
+        query_result = collection.find_one({"code": code_int}, {"_id": 0})
         logger.info("Database quired")
 
         if query_result['photo'] == b'':
@@ -235,15 +235,16 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         logger.info("Trying to decode")
 
         result = decode(Image.open('code.png'))
-        code_str = result[0].data.decode("utf-8")
-        context.user_data.setdefault("DRUG_INFO", {})["code"] = code_str
+        code_int = int(result[0].data.decode("utf-8"))
+        print(type(code_int))
+        context.user_data.setdefault("DRUG_INFO", {})["code"] = code_int
         print(context.user_data)
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
         reply_keyboard2 = [['Так', 'Ні']]
 
-        if db_check_availability(code_str) and retrieve_db_photo(code_str) is not None:
+        if db_check_availability(code_int) and retrieve_db_photo(code_int) is not None:
             logger.info("The barcode is present in the database")
-            img = retrieve_db_photo(code_str)
+            img = retrieve_db_photo(code_int)
             img.save("retrieved_image.jpg")
 
             update.message.reply_photo(
@@ -252,14 +253,14 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                caption='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
+                caption='✅ Штрих-код ' + '<b>' + str(code_int) + '</b>' +
                         ' наявний у моїй базі даних:\n\n' +
-                        retrieve_db_query(code_str),
+                        retrieve_db_query(code_int),
                 quote=True
             )
 
             os.remove("retrieved_image.jpg")
-        elif db_check_availability(code_str):
+        elif db_check_availability(code_int):
             logger.info("The barcode is present in the database but photo is missing")
 
             update.message.reply_text(
@@ -267,22 +268,22 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                text='✅ Штрих-код ' + '<b>' + code_str + '</b>' +
+                text='✅ Штрих-код ' + '<b>' + str(code_int) + '</b>' +
                      ' наявний у моїй базі даних:\n\n' +
-                     retrieve_db_query(code_str) +
+                     retrieve_db_query(code_int) +
                      '\n\n⚠️ Фото відсутнє',
                 quote=True
             )
         else:
             logger.info("The barcode is missing from the database. Asking to add info")
-            link = 'https://www.google.com/search?q=' + code_str
+            link = 'https://www.google.com/search?q=' + str(code_int)
 
             update.message.reply_text(
                 parse_mode='HTML',
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard2, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                text='❌ Штрих-код ' + '<b>' + code_str + '</b>' +
+                text='❌ Штрих-код ' + '<b>' + str(code_int) + '</b>' +
                      ' відсутній у моїй базі даних.\n\n' +
                      'Чи бажаєте Ви додати інформацію про цей медикамент?'
                      f'\n\nДля зручності, ви можете знайти інформацію про цей медикамент у '
@@ -359,8 +360,8 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
 
     try:
         result = decode(Image.open('code.png'))
-        code_str = result[0].data.decode("utf-8")
-        if db_check_availability(code_str):
+        code_int = int(result[0].data.decode("utf-8"))
+        if db_check_availability(code_int):
             logger.info("This barcode already exists. Cancelling adding process")
 
             update.message.reply_text(
@@ -371,7 +372,7 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
             return cancel(update=update, context=context)
         else:
             logger.info("Barcode scanned successfully")
-            context.user_data.setdefault("DRUG_INFO", {})["code"] = code_str
+            context.user_data.setdefault("DRUG_INFO", {})["code"] = code_int
             logger.info("Storing barcode info")
             update.message.reply_text(
                 text="Штрих-код відскановано успішно ✅",
@@ -843,7 +844,7 @@ def start_report(update: Update, context: CallbackContext) -> int:
 
     drug_info = context.user_data.setdefault("DRUG_INFO", {})
 
-    if drug_info.setdefault("code", '') == "":
+    if drug_info.setdefault("code", 0) == 0:
         update.message.reply_text(
             text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
         )
@@ -856,7 +857,8 @@ def start_report(update: Update, context: CallbackContext) -> int:
         return cancel_report(update=update, context=context)
 
     update.message.reply_text(
-        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{drug_info['code']}__*"
+        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом "
+             f"__{str(drug_info['code'])}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -906,7 +908,7 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
                                          input_field_placeholder='Оберіть опцію')
     )
 
-    context.user_data["DRUG_INFO"]["code"] = ''
+    context.user_data["DRUG_INFO"]["code"] = 0
     return ConversationHandler.END
 
 

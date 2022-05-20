@@ -190,7 +190,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
 @under_maintenance
 def scan_handler(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
-    logger.info("%s: %s. Scan started", user.first_name, update.message.text)
+    logger.info("%s: %s", user.first_name, update.message.text)
 
     reply_keyboard = [['Відмінити сканування']]
 
@@ -289,6 +289,8 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         result = decode(Image.open(image_bytes))
         barcode = result[0].data.decode("utf-8")
 
+        logger.info("Decoded successfully")
+
         context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
 
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
@@ -343,8 +345,8 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 disable_web_page_preview=True
             )
 
-    except IndexError as e:
-        logger.info("Failed to scan")
+    except IndexError:
+        logger.info("Failed to scan. Asking to retry")
 
         reply_keyboard = [['Ще раз', 'Інструкції']]
 
@@ -413,8 +415,6 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     :param context:CallbackContext: Store data in between calls
     :return: Ingredient state of conversation or None
     """
-    logger.info("Storing photo")
-
     user = update.message.from_user
     reply_keyboard = [['Скасувати додавання']]
 
@@ -427,9 +427,15 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     image_bytes = io.BytesIO()
     foto.download(out=image_bytes)
 
+    logger.info("Storing photo")
+
     try:
+        logger.info("Trying to decode")
+
         result = decode(Image.open(image_bytes))
         barcode = result[0].data.decode("utf-8")
+
+        logger.info("Decoded successfully")
 
         if db_check_availability(barcode):
             logger.info("This barcode already exists. Cancelling adding process")
@@ -441,16 +447,16 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
 
             return cancel(update=update, context=context)
         else:
-            logger.info("Barcode scanned successfully")
             context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
             logger.info("Storing barcode info")
+
             update.message.reply_text(
                 text="Штрих-код відскановано успішно ✅",
                 quote=True
             )
 
     except IndexError as e:
-        logger.info("Failed to scan")
+        logger.info("Failed to scan. Asking to retry")
 
         update.message.reply_text(
             text="*На жаль, сталася помилка\. Мені не вдалось відсканувати штрих\-код ❌ *"
@@ -499,6 +505,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
         return INGREDIENT
 
     context.user_data.setdefault("DRUG_INFO", {})["name"] = name
+    logger.info("Storing name")
 
     logger.info("Asking for an active ingredient")
 
@@ -541,6 +548,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
         return ABOUT
 
     context.user_data["DRUG_INFO"]["active_ingredient"] = active_ingredient
+    logger.info("Storing active ingredient")
 
     logger.info("Asking for a description")
 
@@ -564,7 +572,7 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     :param context:CallbackContext: Pass the user id to the function
     :return: Check state of conversation
     """
-    logger.info("Entered description: %s. Asking for a photo", update.message.text)
+    logger.info("Entered description: %s", update.message.text)
 
     user = update.message.from_user
     reply_keyboard = [['Скасувати додавання', 'Пропустити']]
@@ -595,6 +603,9 @@ def get_photo(update: Update, context: CallbackContext) -> int:
         return PHOTO
 
     context.user_data["DRUG_INFO"]["description"] = description
+    logger.info("Storing description")
+
+    logger.info("Asking for a photo of the front side")
 
     update.message.reply_text(
         text='Також, надішліть фото передньої сторони упаковки медикаменту.'
@@ -631,7 +642,7 @@ def check_info(update: Update, context: CallbackContext) -> int:
     :param context:CallbackContext: Pass the user data to the function
     :return: Insert state of the conversation
     """
-    logger.info("Now checking info")
+    logger.info("All info collected successfully. Now checking...")
 
     user = update.message.from_user
 
@@ -649,6 +660,8 @@ def check_info(update: Update, context: CallbackContext) -> int:
         image_bytes = io.BytesIO()
 
         photo.download(out=image_bytes)
+        context.user_data["DRUG_INFO"]["photo"] = image_bytes.getvalue()
+        logger.info("Storing photo")
 
         update.message.reply_photo(
             image_bytes.getvalue(),
@@ -659,9 +672,10 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
-        context.user_data["DRUG_INFO"]["photo"] = image_bytes.getvalue()
 
     elif update.message.text and drug_info.setdefault("photo", b'') == b'':
+        logger.info("Photo skipped")
+
         update.message.reply_text(
             text='<b>Введена інформація:</b>\n\n' +
                  '⚠️ Фото відсутнє\n' + output +
@@ -711,7 +725,8 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         context.user_data["DRUG_INFO"]["added_on"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
 
         collection.insert_one(context.user_data["DRUG_INFO"])
-        logger.info("Checked info. Added successfully")
+        logger.info("Checked info. Added to DB successfully")
+
         update.message.reply_text(
             text='✅ Препарат успішно додано до бази даних',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -724,6 +739,8 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         logger.info("Cleared")
 
     elif update.message.text == 'Змінити інформацію':
+        logger.info("User asked to change info")
+
         reply_keyboard_change = [['Назва', 'Діюча речовина', 'Опис']]
         update.message.reply_text(
             text='Гаразд, яке поле ви хочете змінити?',
@@ -735,6 +752,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
 
     else:
         logger.info("User %s canceled adding process", user.first_name)
+
         update.message.reply_text(
             text='☑️ Гаразд, додавання скасовано',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -760,6 +778,8 @@ def change_info(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати додавання']]
 
     if update.message.text == 'Назва':
+        logger.info("Asking for a new name")
+
         context.user_data["change"] = "name"
         update.message.reply_text(
             text='Добре, надішліть нову назву',
@@ -768,6 +788,8 @@ def change_info(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
     if update.message.text == 'Діюча речовина':
+        logger.info("Asking for a new active ingredient")
+
         context.user_data["change"] = "active_ingredient"
         update.message.reply_text(
             text='Добре, надішліть нову назву діючої речовини',
@@ -776,6 +798,8 @@ def change_info(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
     if update.message.text == 'Опис':
+        logger.info("Asking for a new description")
+
         context.user_data["change"] = "description"
         update.message.reply_text(
             text='Добре, надішліть новий опис',
@@ -803,12 +827,21 @@ def rewrite(update: Update, context: CallbackContext) -> check_info:
     """
     if context.user_data["change"] == "name":
         context.user_data["DRUG_INFO"]["name"] = update.message.text
+
+        logger.info("Changed name succsessfully")
+
         return check_info(update=update, context=context)
     if context.user_data["change"] == "active_ingredient":
         context.user_data["DRUG_INFO"]["active_ingredient"] = update.message.text
+
+        logger.info("Changed active ingredient succsessfully")
+
         return check_info(update=update, context=context)
     if context.user_data["change"] == "description":
         context.user_data["DRUG_INFO"]["description"] = update.message.text
+
+        logger.info("Changed description succsessfully")
+
         return check_info(update=update, context=context)
 
 
@@ -873,7 +906,7 @@ def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
     :return: None
     """
     user = update.message.from_user
-    logger.info("%s: %s", user.first_name, update.message.text)
+    logger.info("%s: %s. Returning to the main menu", user.first_name, update.message.text)
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -975,6 +1008,7 @@ def register(update: Update, context: CallbackContext) -> int:
                                        one_time_keyboard=True,
                                        resize_keyboard=True,
                                        input_field_placeholder='Реєстрація')
+
     update.message.reply_text(
         text='🔐 Реєстрація потрібна для забеспечення безпеки та зменшення кількості спаму'
              '\n\n✅ *Аби зареєструватись, оберіть опцію "Надіслати контакт"*'
@@ -1000,11 +1034,13 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    post_id = admins_collection.insert_one(update.message.contact.to_dict()).inserted_id
     user_id = update.effective_user.id
     user = update.message.from_user
-
     phone_number_markdown = update.message.contact.phone_number.replace('+', '\+')
+
+    post_id = admins_collection.insert_one(update.message.contact.to_dict()).inserted_id
+    logger.info("Added new admin successfully. Admin ID: {}".format(user_id))
+
     update.message.reply_text(
         text=f"✅ *{user.first_name}*, Вас успішно зареєстровано як адміністратора"
              f"\n\nВаш ID: *{user_id}*"
@@ -1016,7 +1052,6 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
                                          input_field_placeholder='Оберіть опцію')
     )
 
-    logger.info("Added new admin successfully. Admin ID: {}".format(user_id))
     return ConversationHandler.END
 
 
@@ -1031,6 +1066,9 @@ def cancel_register(update: Update, context: CallbackContext) -> ConversationHan
     :return: ConversationHandler.END
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    user = update.message.from_user
+    logger.info("%s: Cancelled authorization", user.first_name)
 
     update.message.reply_text(
         text="☑️ Реєстрацію скасовано",
@@ -1056,19 +1094,28 @@ def start_report(update: Update, context: CallbackContext) -> int:
     """
     reply_keyboard = [['Скасувати']]
 
+    user = update.message.from_user
+    logger.info("%s: Started report", user.first_name)
+
     drug_info = context.user_data.setdefault("DRUG_INFO", {})
 
     if drug_info.setdefault("code", '') == '':
+        logger.info("Barcode is not scanned. Cancelling report")
+
         update.message.reply_text(
             text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
         )
         scan_handler(update=update, context=context)
         return ConversationHandler.END
     if db_check_availability(drug_info["code"]) is False:
+        logger.info("Barcode is missing from the DB. Cancelling report")
+
         update.message.reply_text(
             text="⚠️️️ Ви не можете повідомити про штрих-код, що відсутній у базі баних"
         )
         return cancel_report(update=update, context=context)
+
+    logger.info("Asking for report description")
 
     update.message.reply_text(
         text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом "
@@ -1102,11 +1149,15 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
 
     document = collection.find_one({"code": drug_info["code"]})
     if "report" in document:
+        logger.info("Report for this document already exists. Concatenating")
+
         number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": drug_info["code"]},
                               {"$set": {"report": document["report"] + f", [{number + 1}]: " + report_description}})
     else:
         collection.update_one({"code": drug_info["code"]}, {"$set": {"report": "[1]: " + report_description}})
+
+    logger.info("Reported successfully")
 
     update.message.reply_text(
         text="✅️ Дякуємо. Ви успішно повідомили про проблему",
@@ -1129,6 +1180,8 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
     :return: Conversationhandler.END
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    logger.info("Report cancelled")
 
     update.message.reply_text(
         text="☑️ Відгук скасовано",
@@ -1153,6 +1206,10 @@ def cancel_default(update: Update, context: CallbackContext) -> None:
     :return: None
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    user = update.message.from_user
+    logger.info("%s: /cancel. All operations cancelled", user.first_name)
+
     update.message.reply_text(
         text="ℹ️️ Усі операції скасовано",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -1174,6 +1231,9 @@ def start_review(update: Update, context: CallbackContext) -> int:
     :return: The next state of the conversation
     """
     reply_keyboard = [['Скасувати']]
+
+    user = update.message.from_user
+    logger.info("User %s started review. Asking for a description", user.first_name)
 
     update.message.reply_text(
         text=f"💌 *Ваш відгук буде надіслано команді розробників*"
@@ -1268,6 +1328,8 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
             msg.set_content(content, subtype='html')
             smtp.send_message(msg)
 
+        logger.info("User %s reviewed successfully", user.first_name)
+
         update.message.reply_text(
             text="*Щиро дякуємо* ❤️ "
                  "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
@@ -1278,7 +1340,9 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
                                              input_field_placeholder='Оберіть опцію')
         )
     except Exception as e:
+        logger.warning("Something went wrong during review")
         logger.warning(e)
+
         update.message.reply_text(
             text="*Упс\.\.\. Щось пішло не так* 😞️"
                  "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота\.",
@@ -1305,6 +1369,8 @@ def statistics_for_user(update: Update, context: CallbackContext) -> int:
     """
     reply_keyboard = [['Скасувати']]
 
+    logger.info("/statistics. Asking for the ID")
+
     update.message.reply_text(
         text="Введіть ID користувача для отримання статистики",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -1322,6 +1388,8 @@ def get_admin_info(user_id):
     :param user_id: Find the user in the admins collection
     :return: A dictionary with the admin's information
     """
+    logger.info("Getting admin info")
+
     admin_info = admins_collection.find_one({"user_id": user_id}, {"_id": 0})
     return "\nІнформація: " + json.dumps(admin_info, sort_keys=False, ensure_ascii=False, indent=4)
 
@@ -1333,6 +1401,8 @@ def get_banned_info(user_id):
     :param user_id: Find the user in the blacklist database
     :return: The information about the user who has been banned
     """
+    logger.info("Getting banned info")
+
     banned_info = blacklist.find_one({"user_id": user_id}, {"_id": 0})
     return "\nІнформація: " + json.dumps(banned_info, sort_keys=False, ensure_ascii=False, indent=4)
 
@@ -1353,13 +1423,16 @@ def show_statistics(update: Update, context: CallbackContext) -> int:
     context.user_data["entered_id"] = entered_id
 
     try:
+        logger.info("Collecting user info by ID")
+
         documents_quantity = collection.count_documents({"user_id": entered_id})
         reports_quantity = collection.count_documents({"user_id": entered_id, "report": {'$exists': 'true'}})
         is_admin = admins_collection.count_documents({"user_id": entered_id}) > 0
         is_banned = blacklist.count_documents({"user_id": entered_id}) > 0
 
     except Exception as e:
-        logger.info(e)
+        logger.warning("Something went wrong during statistics collection")
+        logger.warning(e)
 
         update.message.reply_text(
             text=f"Щось пішло не так: \n\n{e}",
@@ -1370,6 +1443,8 @@ def show_statistics(update: Update, context: CallbackContext) -> int:
         )
     else:
         if documents_quantity == 0 and not is_admin and not is_banned == 0:
+            logger.info("There's no statistics for {}".format(entered_id))
+
             update.message.reply_text(
                 text="Статистика для користувача *{}* відсутня ⚠️".format(entered_id),
                 parse_mode="MarkdownV2",
@@ -1394,6 +1469,8 @@ def show_statistics(update: Update, context: CallbackContext) -> int:
 
             if documents_quantity > 0:
                 reply_keyboard[0].insert(0, 'Отримати додані медикаменти')
+
+            logger.info("Retrieving statistics")
 
             update.message.reply_text(
                 text="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
@@ -1435,6 +1512,8 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
         with open('data.json', 'w', encoding='utf-8') as f:
             json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
 
+        logger.info("Sending medicine file")
+
         update.message.reply_document(
             document=open('data.json', 'rb'),
             filename=f"Statistics_for_{entered_id}.json",
@@ -1452,6 +1531,8 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
 
         with open('data.json', 'w', encoding='utf-8') as f:
             json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
+
+        logger.info("Sending reports file")
 
         update.message.reply_document(
             document=open('data.json', 'rb'),
@@ -1479,6 +1560,8 @@ def cancel_statistics(update: Update, context: CallbackContext) -> ConversationH
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
+    logger.info("Ended collecting statistics")
+
     update.message.reply_text(
         text="☑️ Отримання статистики завершено",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -1501,6 +1584,8 @@ def start_ban(update: Update, context: CallbackContext) -> int:
     :param context:CallbackContext: Pass the context of a callback query
     :return: The id of the user to be banned
     """
+    logger.info("/ban. Asking for the ID")
+
     reply_keyboard = [['Скасувати']]
 
     update.message.reply_text(
@@ -1527,6 +1612,8 @@ def get_reason(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
     context.user_data["user_id"] = int(update.message.text)
+
+    logger.info("Asking for a ban reason")
 
     update.message.reply_text(
         text="Введіть причину блокування блокування",
@@ -1560,6 +1647,8 @@ def ban_user(update: Update, context: CallbackContext) -> ConversationHandler.EN
 
     post_id = blacklist.insert_one(post).inserted_id
 
+    logger.info("Banned successfully. ID: {}".format(context.user_data["user_id"]))
+
     update.message.reply_text(
         text="✅ Користувача успішно заблоковано",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -1581,6 +1670,8 @@ def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.
     :param context:CallbackContext: Pass data between the callback functions
     :return: Conversationhandler.END
     """
+    logger.info("Ban cancelled")
+
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     context.user_data["user_id"] = 0
@@ -1606,6 +1697,8 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     :param context:CallbackContext: Send messages to the user
     :return: None
     """
+    logger.info("Sending countries statistics plot")
+
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
 
     quantities = statistics.get_quantities('resources/country_codes.json')

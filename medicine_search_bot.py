@@ -244,10 +244,14 @@ def retrieve_db_query(barcode) -> str or None:
     """
     try:
         logger.info("Database quired. Retrieving info")
-        query_result = collection.find_one({"code": barcode}, {"_id": 0})
+        query_result = collection.find_one({"code": barcode}, {"_id": 0, "photo": 0})
         str_output = f"<b>Назва</b>: {query_result['name']} " \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
-                     f"\n<b>Опис</b>: {query_result['description']} "
+                     f"\n<b>Опис</b>: {query_result['description']}"
+
+        if "report" in query_result:
+            str_output = "<b>❗️️️ На цю інформацію було подано скарги, які ще не було розглянуто модераторами. " \
+                         "Будьте пильні! ❗</b>\n\n" + str_output
         return str_output
     except Exception as e:
         logger.info(e)
@@ -264,7 +268,7 @@ def retrieve_db_photo(barcode) -> Image or None:
     :return: An image object
     """
     try:
-        query_result = collection.find_one({"code": barcode}, {"_id": 0})
+        query_result = collection.find_one({"code": barcode}, {"photo": 1})
         logger.info("Database quired")
 
         if query_result['photo'] == b'':

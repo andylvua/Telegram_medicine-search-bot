@@ -72,7 +72,7 @@ def get_bar_chart(countries):
     df = pd.DataFrame(countries.items(), columns=['Country', 'Quantity'])
     df.sort_values(by='Quantity', ignore_index=True, ascending=False, inplace=True)
 
-    plt.figure(figsize=(15, 10))
+    plot = plt.figure(figsize=(15, 10))
 
     sns.barplot(
         x="Country",
@@ -93,7 +93,7 @@ def get_bar_chart(countries):
     plt.gca().bar_label(plt.gca().containers[0], fontsize=14, fontweight='bold',
                         label_type='center', color='white')
 
-    plt.savefig('plot.png')
+    return plot
 
 # get_quantities("country_codes.json")
 # get_not_empty_countries("quantities.json")

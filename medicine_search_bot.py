@@ -12,7 +12,6 @@ from PIL import Image, ImageDraw
 from pyzbar.pyzbar import decode
 from email.message import EmailMessage
 
-import os
 import io
 import logging
 import smtplib
@@ -258,10 +257,10 @@ def retrieve_db_query(barcode) -> str or None:
         return
 
 
-def retrieve_db_photo(barcode) -> Image or None:
+def retrieve_db_photo(barcode) -> bytes or None:
     """
     The retrieve_db_photo function retrieves a photo from the database.
-    It takes in a barcode as its parameter, and returns an Image object if it exists in the database,
+    It takes in a barcode as its parameter, and returns a bytes if it exists in the database,
     otherwise it returns None.
 
     :param barcode: Specify the code of the photo that is going to be retrieved from the database
@@ -276,7 +275,7 @@ def retrieve_db_photo(barcode) -> Image or None:
             return
 
         logger.info("Retrieving photo")
-        img = Image.open(io.BytesIO(query_result['photo']))
+        img = query_result['photo']
         return img
     except Exception as e:
         logger.info(e)
@@ -318,14 +317,13 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
         return
 
     foto = context.bot.getFile(id_img)
-
-    new_file = context.bot.get_file(foto.file_id)
-    new_file.download('code.png')
+    image_bytes = io.BytesIO()
+    foto.download(out=image_bytes)
 
     # scanned_barcode_image()
 
     try:
-        result = decode(Image.open('code.png'))
+        result = decode(Image.open(image_bytes))
         barcode = result[0].data.decode("utf-8")
         link = 'https://www.google.com/search?q=' + barcode
 
@@ -334,10 +332,9 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
         if db_check_availability(barcode) and retrieve_db_photo(barcode) is not None:
             logger.info("The barcode is present in the database")
             img = retrieve_db_photo(barcode)
-            img.save("retrieved_image.jpg")
 
             update.message.reply_photo(
-                open("retrieved_image.jpg", 'rb'),
+                img,
                 parse_mode='HTML',
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
@@ -346,7 +343,6 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                         retrieve_db_query(barcode),
             )
 
-            os.remove("retrieved_image.jpg")
         elif db_check_availability(barcode):
             update.message.reply_text(
                 parse_mode='HTML',
@@ -394,8 +390,6 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
                                       reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
                                       input_field_placeholder='Оберіть опцію'
                                   )),
-    finally:
-        os.remove("code.png")
 
 
 def get_query_heading(barcode) -> str:
@@ -906,11 +900,10 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
                                                  input_field_placeholder='Оберіть опцію')
             )
         else:
-            img = Image.open(io.BytesIO(item['photo']))
-            img.save("retrieved_image.jpg")
+            img = item['photo']
 
             update.message.reply_photo(
-                open("retrieved_image.jpg", 'rb'),
+                img,
                 caption=str_output,
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -918,7 +911,6 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Оберіть опцію')
             )
-            os.remove("retrieved_image.jpg")
 
     medicine_by_name.close()
     return ConversationHandler.END
@@ -973,11 +965,10 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
                                              input_field_placeholder='Оберіть опцію')
         )
     else:
-        img = Image.open(io.BytesIO(medicine_by_barcode['photo']))
-        img.save("retrieved_image.jpg")
+        img = medicine_by_barcode['photo']
 
         update.message.reply_photo(
-            open("retrieved_image.jpg", 'rb'),
+            img,
             caption=str_output,
             parse_mode="HTML",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -985,7 +976,6 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
-        os.remove("retrieved_image.jpg")
 
     return ConversationHandler.END
 

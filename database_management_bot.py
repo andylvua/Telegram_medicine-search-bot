@@ -215,7 +215,7 @@ def db_check_availability(barcode) -> bool or None:
     """
     try:
         logger.info("Database quired. Checking availability")
-        if collection.count_documents({"code": barcode}) != '':
+        if collection.count_documents({"code": barcode}) != 0:
             return True
         else:
             return False
@@ -244,14 +244,14 @@ def retrieve_db_query(barcode) -> str or None:
         return
 
 
-def retrieve_db_photo(barcode) -> Image or None:
+def retrieve_db_photo(barcode) -> bytes or None:
     """
     The retrieve_db_photo function retrieves a photo from the database.
-    It takes in a barcode as its parameter, and returns an Image object if it exists in the database,
+    It takes in a barcode as its parameter, and returns a bytes if it exists in the database,
     otherwise it returns None.
 
     :param barcode: Specify the code of the photo that is going to be retrieved from the database
-    :return: An image object
+    :return: bytes
     """
     try:
         query_result = collection.find_one({"code": barcode}, {"_id": 0})
@@ -262,7 +262,7 @@ def retrieve_db_photo(barcode) -> Image or None:
             return
 
         logger.info("Retrieving photo")
-        img = Image.open(io.BytesIO(query_result['photo']))
+        img = query_result['photo']
         return img
     except Exception as e:
         logger.info(e)
@@ -280,14 +280,13 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         return
 
     foto = context.bot.getFile(id_img)
-
-    new_file = context.bot.get_file(foto.file_id)
-    new_file.download('code.png')
+    image_bytes = io.BytesIO()
+    foto.download(out=image_bytes)
 
     try:
         logger.info("Trying to decode")
 
-        result = decode(Image.open('code.png'))
+        result = decode(Image.open(image_bytes))
         barcode = result[0].data.decode("utf-8")
 
         context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
@@ -298,10 +297,10 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         if db_check_availability(barcode) and retrieve_db_photo(barcode) is not None:
             logger.info("The barcode is present in the database")
             img = retrieve_db_photo(barcode)
-            img.save("retrieved_image.jpg")
+            # img.save("retrieved_image.jpg")
 
             update.message.reply_photo(
-                open("retrieved_image.jpg", 'rb'),
+                img,
                 parse_mode='HTML',
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
@@ -312,7 +311,6 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 quote=True
             )
 
-            os.remove("retrieved_image.jpg")
         elif db_check_availability(barcode):
             logger.info("The barcode is present in the database but photo is missing")
 
@@ -361,9 +359,6 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
-    finally:
-        logger.info("Operation ended. Deleting barcode image")
-        os.remove("code.png")
 
 
 @under_maintenance
@@ -429,10 +424,11 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
         return
 
     foto = context.bot.getFile(id_img)
-    foto.download('code.png')
+    image_bytes = io.BytesIO()
+    foto.download(out=image_bytes)
 
     try:
-        result = decode(Image.open('code.png'))
+        result = decode(Image.open(image_bytes))
         barcode = result[0].data.decode("utf-8")
 
         if db_check_availability(barcode):
@@ -465,8 +461,6 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
         ),
 
         return start_adding(update=update, context=context)
-    finally:
-        os.remove("code.png")
 
     logger.info("Asking for a name")
     update.message.reply_text(
@@ -652,16 +646,12 @@ def check_info(update: Update, context: CallbackContext) -> int:
     if update.message.photo:
         id_img = update.message.photo[-1].file_id
         photo = context.bot.getFile(id_img)
-        photo.download('photo.jpg')
-
-        img = Image.open("photo.jpg")
         image_bytes = io.BytesIO()
-        img.save(image_bytes, format='JPEG')
 
-        context.user_data["DRUG_INFO"]["photo"] = image_bytes.getvalue()
+        photo.download(out=image_bytes)
 
         update.message.reply_photo(
-            open("photo.jpg", 'rb'),
+            image_bytes.getvalue(),
             caption='<b>Введена інформація:</b>\n\n' + output +
                     '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
@@ -669,7 +659,8 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
-        os.remove("photo.jpg")
+        context.user_data["DRUG_INFO"]["photo"] = image_bytes.getvalue()
+
     elif update.message.text and drug_info.setdefault("photo", b'') == b'':
         update.message.reply_text(
             text='<b>Введена інформація:</b>\n\n' +
@@ -681,11 +672,10 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder="Оберіть опцію")
         )
     else:
-        img = Image.open(io.BytesIO(drug_info['photo']))
-        img.save("photo.jpg")
+        img = drug_info['photo']
 
         update.message.reply_photo(
-            open("photo.jpg", 'rb'),
+            img,
             caption='<b>Введена інформація:</b>\n\n' + output +
                     '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
@@ -693,7 +683,6 @@ def check_info(update: Update, context: CallbackContext) -> int:
                                              resize_keyboard=True,
                                              input_field_placeholder="Оберіть опцію")
         )
-        os.remove("photo.jpg")
     return INSERT
 
 
@@ -1443,36 +1432,36 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
         medicine_by_user_id = list(
             collection.find({"user_id": entered_id}, {"_id": 0, "photo": 0, "report": 0, "user_id": 0}))
 
-        with open('resources/country_codes.json', 'w', encoding='utf-8') as f:
+        with open('data.json', 'w', encoding='utf-8') as f:
             json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
 
         update.message.reply_document(
-            document=open('resources/country_codes.json', 'rb'),
+            document=open('data.json', 'rb'),
             filename=f"Statistics_for_{entered_id}.json",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
-        os.remove('resources/country_codes.json')
+        os.remove('data.json')
 
     if update.message.text == 'Отримати список скарг':
         medicine_by_user_id = list(collection.find({"user_id": entered_id, "report": {'$exists': 'true'}},
                                                    {"_id": 0, "photo": 0, "user_id": 0, "active_ingredient": 0,
                                                     "description": 0}))
 
-        with open('resources/country_codes.json', 'w', encoding='utf-8') as f:
+        with open('data.json', 'w', encoding='utf-8') as f:
             json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
 
         update.message.reply_document(
-            document=open('resources/country_codes.json', 'rb'),
+            document=open('data.json', 'rb'),
             filename=f"Reports_for_{entered_id}.json",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
-        os.remove('resources/country_codes.json')
+        os.remove('data.json')
 
     return SEND_FILES
 
@@ -1622,15 +1611,16 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     quantities = statistics.get_quantities('resources/country_codes.json')
     not_empty_countries = statistics.get_not_empty_countries(quantities)
 
-    statistics.get_bar_chart(not_empty_countries)
+    plot = statistics.get_bar_chart(not_empty_countries)
 
-    pic = 'plot.png'
+    img_buf = io.BytesIO()
+    plot.savefig(img_buf, format='png')
+
     update.message.reply_photo(
-        open(pic, 'rb'),
+        img_buf.getvalue(),
         caption="*Статистика по країнах на основі колекції медикаментів*",
         parse_mode="MarkdownV2"
     )
-    os.remove('plot.png')
 
 
 def main() -> None:

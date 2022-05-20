@@ -143,3 +143,5 @@ cython_debug/
 
 # Config files
 *.ini
+/quantities.json
+/countries.json

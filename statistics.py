@@ -19,6 +19,14 @@ collection = db.TestBotCollection
 
 
 def get_quantities(path):
+    """
+    The get_quantities function takes a path to a json file containing country codes and returns
+    a dictionary with the quantities of countries that match the regex for each code.
+
+
+    :param path: Specify the path to the json file containing the country codes
+    :return: A dictionary with the country codes as keys and the number of documents in our database that match each code as values
+    """
     with open(path) as json_file:
         country_codes = json.load(json_file)
     
@@ -42,6 +50,13 @@ def get_quantities(path):
     
 
 def get_not_empty_countries(quantities):
+    """
+    The get_not_empty_countries function takes a dictionary of country names and quantities as input.
+    It returns a new dictionary containing only the countries that have at least one quantity greater than zero.
+
+    :param quantities: Store the quantities of each country
+    :return: A dictionary of countries that have values in the quantities dictionary
+    """
     countries = dict()
 
     for key, value in quantities.items():

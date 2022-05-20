@@ -1608,7 +1608,15 @@ def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.
 
 @superuser
 @under_maintenance
-def send_plot(update: Update, context: CallbackContext):
+def send_plot(update: Update, context: CallbackContext) -> None:
+    """
+    The send_plot function sends a plot of the number of drugs per country to the user.
+
+
+    :param update:Update: Access the message object
+    :param context:CallbackContext: Send messages to the user
+    :return: None
+    """
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
 
     quantities = statistics.get_quantities('resources/country_codes.json')

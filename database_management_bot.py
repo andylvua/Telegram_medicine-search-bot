@@ -5,7 +5,7 @@ Version: 2.5.0 Development
 import re
 from datetime import datetime
 
-from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply
+from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 from PIL import Image
@@ -23,6 +23,7 @@ from functools import wraps
 from pymongo import MongoClient
 
 import validators
+import statistics
 
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - %(name)s - %(funcName)s() - %(levelname)s - %(message)s',
@@ -1442,36 +1443,36 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
         medicine_by_user_id = list(
             collection.find({"user_id": entered_id}, {"_id": 0, "photo": 0, "report": 0, "user_id": 0}))
 
-        with open('country_codes.json', 'w', encoding='utf-8') as f:
+        with open('resources/country_codes.json', 'w', encoding='utf-8') as f:
             json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
 
         update.message.reply_document(
-            document=open('country_codes.json', 'rb'),
+            document=open('resources/country_codes.json', 'rb'),
             filename=f"Statistics_for_{entered_id}.json",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
-        os.remove('country_codes.json')
+        os.remove('resources/country_codes.json')
 
     if update.message.text == 'Отримати список скарг':
         medicine_by_user_id = list(collection.find({"user_id": entered_id, "report": {'$exists': 'true'}},
                                                    {"_id": 0, "photo": 0, "user_id": 0, "active_ingredient": 0,
                                                     "description": 0}))
 
-        with open('country_codes.json', 'w', encoding='utf-8') as f:
+        with open('resources/country_codes.json', 'w', encoding='utf-8') as f:
             json.dump(medicine_by_user_id, f, sort_keys=False, ensure_ascii=False, indent=4)
 
         update.message.reply_document(
-            document=open('country_codes.json', 'rb'),
+            document=open('resources/country_codes.json', 'rb'),
             filename=f"Reports_for_{entered_id}.json",
             reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                              one_time_keyboard=True,
                                              resize_keyboard=True,
                                              input_field_placeholder='Оберіть опцію')
         )
-        os.remove('country_codes.json')
+        os.remove('resources/country_codes.json')
 
     return SEND_FILES
 
@@ -1605,6 +1606,25 @@ def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.
     return ConversationHandler.END
 
 
+@superuser
+@under_maintenance
+def send_plot(update: Update, context: CallbackContext):
+    context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
+
+    quantities = statistics.get_quantities('resources/country_codes.json')
+    not_empty_countries = statistics.get_not_empty_countries(quantities)
+
+    statistics.get_bar_chart(not_empty_countries)
+
+    pic = 'plot.png'
+    update.message.reply_photo(
+        open(pic, 'rb'),
+        caption="*Статистика по країнах на основі колекції медикаментів*",
+        parse_mode="MarkdownV2"
+    )
+    os.remove('plot.png')
+
+
 def main() -> None:
     updater = Updater(config['Database']['token'])
     dispatcher = updater.dispatcher
@@ -1692,7 +1712,7 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
-    statistics = ConversationHandler(
+    user_statistics = ConversationHandler(
         entry_points=[CommandHandler('statistics', statistics_for_user)],
         states={
             STATISTICS: [
@@ -1720,7 +1740,10 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати"), cancel_ban)]
     )
 
-    dispatcher.add_handler(statistics)
+    countries_statistics = CommandHandler('countries', send_plot)
+
+    dispatcher.add_handler(user_statistics)
+    dispatcher.add_handler(countries_statistics)
     dispatcher.add_handler(register_handler)
     dispatcher.add_handler(report_handler)
     dispatcher.add_handler(review_handler)

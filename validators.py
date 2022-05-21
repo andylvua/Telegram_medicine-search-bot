@@ -32,14 +32,14 @@ def check_active_ingredient(active_ingredient) -> Optional[str]:
         return None
 
 
-def check_description(description) -> Optional[str]:
+def check_description(description: str) -> str:
     """
     The check_description function checks if the description of a given
     product is in Ukrainian. If it is, then the function returns that
-    description. Otherwise, it returns None.
+    description. Otherwise, it returns language of the description.
 
     :param description: Check if the description is in ukrainian
-    :return: The description if it is ukrainian, and none otherwise
+    :return: The description if it is ukrainian, and language otherwise
     """
     try:
         assert Detector(description).language.name == "Ukrainian"

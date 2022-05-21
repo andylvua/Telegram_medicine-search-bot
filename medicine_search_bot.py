@@ -215,7 +215,7 @@ def goto_scan(update: Update, context: CallbackContext) -> None:
     return scan_handler(update=update, context=context)
 
 
-def db_check_availability(barcode) -> bool or None:
+def db_check_availability(barcode: str) -> bool or None:
     """
     The db_check_availability function checks if the code is already in the database.
     If it is, it returns True. If not, it returns False.
@@ -234,7 +234,7 @@ def db_check_availability(barcode) -> bool or None:
         return
 
 
-def retrieve_db_query(barcode) -> str or None:
+def retrieve_db_query(barcode: str) -> str or None:
     """
     The retrieve_db_query function takes a barcode as an argument and returns the formatted result of a MongoDB query.
     The function will return None if no results are found.
@@ -258,7 +258,7 @@ def retrieve_db_query(barcode) -> str or None:
         return
 
 
-def retrieve_db_photo(barcode) -> bytes or None:
+def retrieve_db_photo(barcode: str) -> bytes or None:
     """
     The retrieve_db_photo function retrieves a photo from the database.
     It takes in a barcode as its parameter, and returns a bytes if it exists in the database,
@@ -283,13 +283,16 @@ def retrieve_db_photo(barcode) -> bytes or None:
         return
 
 
-def scanned_barcode_image(path='code_png'):
+def send_scanned_barcode_image(update: Update, bytes_image: io.BytesIO) -> None:
     """
-    The scanned_barcode_image function takes a path to an image file and draws a rectangle around the detected barcode.
-    :param path: Specify the path of the barcode image
-    :return: An image with the barcode highlighted
+    The send_scanned_barcode_image function takes an image and draws a rectangle around the detected barcode.
+    It then saves the image to a BytesIO object, which is then sent as an update with the message.
+
+    :param update: Update: Pass the update that caused the handler to be called
+    :param bytes_image:bytes: Image to detect the barcode
+    :return: None
     """
-    image = Image.open(path)
+    image = Image.open(bytes_image)
     draw = ImageDraw.Draw(image)
 
     for barcode in decode(image):
@@ -303,7 +306,10 @@ def scanned_barcode_image(path='code_png'):
             width=5
         )
 
-    image.save('bounding_barode_box.png')
+    output = io.BytesIO()
+    image.save(output, "PNG")
+
+    update.message.reply_photo(output.getvalue())
 
 
 # noinspection DuplicatedCode
@@ -321,7 +327,7 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
     image_bytes = io.BytesIO()
     photo.download(out=image_bytes)
 
-    # scanned_barcode_image()
+    # send_scanned_barcode_image(update, image_bytes)
 
     try:
         result = decode(Image.open(image_bytes))

@@ -18,14 +18,13 @@ db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 
 
-def get_quantities(path):
+def get_quantities(path: str) -> dict:
     """
     The get_quantities function takes a path to a json file containing country codes and returns
     a dictionary with the quantities of countries that match the regex for each code.
 
-
     :param path: Specify the path to the json file containing the country codes
-    :return: A dictionary with the country codes as keys and the number of documents in our database that match each code as values
+    :return: A dictionary with the country codes as keys and the number of documents that match each code as values
     """
     with open(path) as json_file:
         country_codes = json.load(json_file)
@@ -49,13 +48,13 @@ def get_quantities(path):
     return quantities
     
 
-def get_not_empty_countries(quantities):
+def get_not_empty_countries(quantities: dict) -> dict:
     """
     The get_not_empty_countries function takes a dictionary of country names and quantities as input.
     It returns a new dictionary containing only the countries that have at least one quantity greater than zero.
 
     :param quantities: Store the quantities of each country
-    :return: A dictionary of countries that have values in the quantities dictionary
+    :return: A dictionary of countries that have values greater than 0 in the quantities dictionary
     """
     countries = dict()
 
@@ -68,7 +67,15 @@ def get_not_empty_countries(quantities):
     return countries
 
 
-def get_bar_chart(countries):
+def get_bar_chart(countries: dict) -> plt.figure:
+    """
+    The get_bar_chart function creates a bar chart of the countries and their respective quantities.
+    It takes in a dictionary as an argument, which is then converted into a pandas dataframe. The dataframe
+    is sorted by quantity, descending order, and then plotted using seaborn.
+
+    :param countries: Pass a dictionary of countries and their respective number of msb's
+    :return: A matplotlib.pyplot.figure bar chart of the countries and their respective quantity
+    """
     df = pd.DataFrame(countries.items(), columns=['Country', 'Quantity'])
     df.sort_values(by='Quantity', ignore_index=True, ascending=False, inplace=True)
 
@@ -94,7 +101,3 @@ def get_bar_chart(countries):
                         label_type='center', color='white')
 
     return plot
-
-# get_quantities("country_codes.json")
-# get_not_empty_countries("quantities.json")
-# get_bar_chart("countries.json")

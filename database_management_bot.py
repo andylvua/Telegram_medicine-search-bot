@@ -494,7 +494,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
 
     name = update.message.text
     if validators.check_name(name) is None:
-        logger.info("Name is not correct, asking to retry", update.message.text)
+        logger.info("Name is not correct, asking to retry")
 
         update.message.reply_text(
             text='*Вкажіть, будь ласка, корректну назву*'

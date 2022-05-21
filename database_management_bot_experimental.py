@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.5.2 Development
+Version: 2.6.2 Development
 """
 import re
 from datetime import datetime

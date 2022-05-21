@@ -1442,11 +1442,11 @@ def show_statistics(update: Update, context: CallbackContext) -> int:
                                              input_field_placeholder='Оберіть опцію')
         )
     else:
-        if documents_quantity == 0 and not is_admin and not is_banned == 0:
+        if documents_quantity == 0 and not is_admin and not is_banned:
             logger.info("There's no statistics for {}".format(entered_id))
 
             update.message.reply_text(
-                text="Статистика для користувача *{}* відсутня ⚠️".format(entered_id),
+                text="ℹ️ Статистика для користувача *{}* відсутня".format(entered_id),
                 parse_mode="MarkdownV2",
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                                  one_time_keyboard=True,

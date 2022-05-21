@@ -36,8 +36,8 @@ def find_faces(bytes_image: bytes) -> str or bytes:
             return output_bytes
 
 
-with open("img.jpg", "rb") as image:
-    image_bytes = image.read()
-
-image = Image.open((find_faces(image_bytes)))
-image.show()
+# with open("img.jpg", "rb") as image:
+#     image_bytes = image.read()
+#
+# image = Image.open((find_faces(image_bytes)))
+# image.show()

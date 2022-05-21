@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.5.2 Development
+Version: 2.5.3 Development
 """
 import re
 from datetime import datetime
@@ -1141,6 +1141,8 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     :return: Conversationhandler.END
     """
     report_description = update.message.text
+    user_id = update.effective_user.id
+
     logger.info("User reported: %s", report_description)
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
@@ -1151,11 +1153,11 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     if "report" in document:
         logger.info("Report for this document already exists. Concatenating")
 
-        number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
+        # number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": drug_info["code"]},
-                              {"$set": {"report": document["report"] + f", [{number + 1}]: " + report_description}})
+                              {"$set": {"report": document["report"] + f", [{user_id}]: " + report_description}})
     else:
-        collection.update_one({"code": drug_info["code"]}, {"$set": {"report": "[1]: " + report_description}})
+        collection.update_one({"code": drug_info["code"]}, {"$set": {"report": f"[{user_id}]: " + report_description}})
 
     logger.info("Reported successfully")
 

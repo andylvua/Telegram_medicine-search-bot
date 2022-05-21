@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.5.1 Development
+Version: 2.5.2 Development
 """
 import re
 from datetime import datetime
@@ -279,9 +279,9 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
     else:
         return
 
-    foto = context.bot.getFile(id_img)
+    photo = context.bot.getFile(id_img)
     image_bytes = io.BytesIO()
-    foto.download(out=image_bytes)
+    photo.download(out=image_bytes)
 
     try:
         logger.info("Trying to decode")
@@ -423,9 +423,9 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     else:
         return
 
-    foto = context.bot.getFile(id_img)
+    photo = context.bot.getFile(id_img)
     image_bytes = io.BytesIO()
-    foto.download(out=image_bytes)
+    photo.download(out=image_bytes)
 
     logger.info("Storing photo")
 

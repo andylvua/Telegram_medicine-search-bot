@@ -1,10 +1,11 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.5.1 Development
+Version: 2.5.2 Development
 """
 from functools import wraps
 
-from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, \
+    ChatAction
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
     ConversationHandler
 
@@ -316,9 +317,9 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
     else:
         return
 
-    foto = context.bot.getFile(id_img)
+    photo = context.bot.getFile(id_img)
     image_bytes = io.BytesIO()
-    foto.download(out=image_bytes)
+    photo.download(out=image_bytes)
 
     # scanned_barcode_image()
 
@@ -630,6 +631,8 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
     user = update.message.from_user
 
     logger.info("User reviewed: %s", review_msg)
+
+    context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -1013,14 +1016,6 @@ def main() -> None:
     continue_scan = MessageHandler(Filters.regex('^(Зрозуміло!|Ще раз)$'), goto_scan)
     decoder = MessageHandler(Filters.photo, retrieve_results)
     not_file = MessageHandler(Filters.attachment, file_warning)
-    # do_not_understand = MessageHandler(~ Filters.regex('^(Сканувати|/scan)$') &
-    #                                    ~ Filters.regex('^(Інструкції|/help)$') &
-    #                                    ~ Filters.regex('^(Зрозуміло!|Ще раз)$') &
-    #                                    ~ Filters.regex('Завершити сканування') &
-    #                                    ~ Filters.regex('Про мене') &
-    #                                    ~ Filters.regex('^(Надіслати відгук|/review)$') &
-    #                                    ~ Filters.photo &
-    #                                    ~ Filters.attachment, undefined_input)
     cancel = CommandHandler('cancel', cancel_operation)
     about = MessageHandler(Filters.regex('Про мене'), tell_about)
 
@@ -1072,7 +1067,6 @@ def main() -> None:
     dispatcher.add_handler(continue_scan)
     dispatcher.add_handler(decoder)
     dispatcher.add_handler(not_file)
-    # dispatcher.add_handler(do_not_understand)
     dispatcher.add_handler(about)
     dispatcher.add_handler(review_handler)
     dispatcher.add_handler(report_handler)

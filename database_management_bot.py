@@ -536,7 +536,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
 
     active_ingredient = update.message.text
     if validators.check_active_ingredient(active_ingredient) is None:
-        logger.info("Active ingredient is not correct, asking to retry", update.message.text)
+        logger.info("Active ingredient is not correct, asking to retry")
 
         update.message.reply_text(
             text='*Вкажіть, будь ласка, корректну назву діючої речовини*'

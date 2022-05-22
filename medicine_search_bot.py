@@ -529,12 +529,12 @@ def settings(update: Update, context: CallbackContext) -> None:
     The function sends a message with two inline buttons attached,
     each one for enabling or disabling Google search results output.
 
-    :param update:Update: Access the context of the conversation
-    :param context:CallbackContext: Store data on the bot object’s state
+    :param update: Update: Access the context of the conversation
+    :param context: CallbackContext: Store data on the bot object’s state
     :return: A message with three inline buttons attached
     """
     """Sends a message with three inline buttons attached."""
-    if context.user_data["GOOGLE_SEARCH"] == "True":
+    if context.user_data.setdefault("GOOGLE_SEARCH", "True") == "True":
         keyboard = [
             [
                 InlineKeyboardButton("Ввімкнено ✅", callback_data="True"),

@@ -5,7 +5,8 @@ Version: 2.6.2 Development
 import re
 from datetime import datetime
 
-from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction
+from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction, InlineKeyboardButton, \
+    InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 from PIL import Image
@@ -1806,6 +1807,8 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     """
     logger.info("Sending countries statistics plot")
 
+    keyboard = [[InlineKeyboardButton(text="Інтеракивна карта", url='https://countries-map.herokuapp.com/')]]
+
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
 
     quantities = statistics.get_quantities('resources/country_codes.json')
@@ -1819,7 +1822,8 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     update.message.reply_photo(
         img_buf.getvalue(),
         caption="*Статистика по країнах на основі колекції медикаментів*",
-        parse_mode="MarkdownV2"
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 

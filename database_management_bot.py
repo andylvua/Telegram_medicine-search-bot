@@ -24,7 +24,7 @@ from pymongo import MongoClient
 
 import validators
 import statistics
-import face_recognition_test as faces
+import face_recognition as faces
 
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - %(name)s - %(funcName)s() - %(levelname)s - %(message)s',

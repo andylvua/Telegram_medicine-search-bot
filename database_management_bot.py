@@ -1,11 +1,11 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.5.3 Development
+Version: 2.6.2 Development
 """
-import re
 from datetime import datetime
 
-from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction
+from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction, InlineKeyboardButton, \
+    InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 from PIL import Image
@@ -24,6 +24,7 @@ from pymongo import MongoClient
 
 import validators
 import statistics
+import face_recognition_test as faces
 
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - %(name)s - %(funcName)s() - %(levelname)s - %(message)s',
@@ -42,7 +43,7 @@ blacklist = db.Blacklist
 
 # Conversation states
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
-CONTACT = 1
+CONTACT, ADMIN_PHOTO = range(2)
 REPORT = 1
 REVIEW = 1
 STATISTICS, SEND_FILES = range(2)
@@ -155,8 +156,8 @@ def start_handler(update: Update, context: CallbackContext) -> None:
     that contains the command /start. It is used to initialize and reset all variables
     in context.user_data, as well as send a welcome message back to the user.
 
-    :param update:Update: Update the user interface
-    :param context:CallbackContext: Store data during the conversation
+    :param update: Update: Update the user interface
+    :param context: CallbackContext: Store data during the conversation
     :return: None
     """
     user = update.message.from_user
@@ -370,8 +371,8 @@ def start_adding(update: Update, context: CallbackContext) -> int:
     The start_adding function is called when the user sends the /add command to the bot.
     If the user has sent a photo, it will ask for a name of the medicine. If not, it will ask to send one.
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Pass data from the handler to the callback function
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Pass data from the handler to the callback function
     :return: The name state
     """
     user = update.message.from_user
@@ -411,8 +412,8 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     to start_adding function (which asks for another photo).
     Otherwise - ask for name of medicine.
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Store data in between calls
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Store data in between calls
     :return: Ingredient state of conversation or None
     """
     user = update.message.from_user
@@ -483,8 +484,8 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
     The get_active_ingredient function is called when the user enters a name of the drug.
     It checks if the entered name is correct, stores it, and then asks for an active ingredient.
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Store data that will be passed between the handlers
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Store data that will be passed between the handlers
     :return: About state of conversation
     """
     logger.info("Entered name of the drug: %s", update.message.text)
@@ -525,8 +526,8 @@ def get_about(update: Update, context: CallbackContext) -> int:
     The function first checks if the active ingredient of the drug is correct, stores it,
     and then asks for its description.
 
-    :param update:Update: Store the incoming message
-    :param context:CallbackContext: Store data on the conversation between functions
+    :param update: Update: Store the incoming message
+    :param context: CallbackContext: Store data on the conversation between functions
     :return: Photo state of conversation
     """
     logger.info("Entered active ingredient of the drug: %s", update.message.text)
@@ -568,8 +569,8 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     the medicine package.
 
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Pass the user id to the function
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Pass the user id to the function
     :return: Check state of conversation
     """
     logger.info("Entered description: %s", update.message.text)
@@ -624,8 +625,8 @@ def skip_photo(update: Update, context: CallbackContext) -> int:
     the medicine package.
 
 
-    :param update:Update: Update the user's profile
-    :param context:CallbackContext: Pass information to the callback function
+    :param update: Update: Update the user's profile
+    :param context: CallbackContext: Pass information to the callback function
     :return: Check state of the conversation
     """
     return CHECK
@@ -638,8 +639,8 @@ def check_info(update: Update, context: CallbackContext) -> int:
     It formats output string of the name, active ingredient and the description.
     Then it checks if there is a photo, and if everything is correct it asks for confirmation of adding to database.
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Pass the user data to the function
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Pass the user data to the function
     :return: Insert state of the conversation
     """
     logger.info("All info collected successfully. Now checking...")
@@ -710,8 +711,8 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
     If message text is 'Змінити інформацію' it returns change_info of the conversation.
     If none of that checks are passed it cancels the adding process
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Keep track of the state of a conversation
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Keep track of the state of a conversation
     :return: Next state or ConversationHandler.END
     """
     user = update.message.from_user
@@ -771,8 +772,8 @@ def change_info(update: Update, context: CallbackContext) -> int:
     It checks what field of information is being changed and then asks for new data.
 
 
-    :param update:Update: Access the message that is received by the bot
-    :param context:CallbackContext: Store data on the user's side throughout the conversation
+    :param update: Update: Access the message that is received by the bot
+    :param context: CallbackContext: Store data on the user's side throughout the conversation
     :return: Rewrite state and information that the user wants to change
     """
     reply_keyboard = [['Скасувати додавання']]
@@ -821,8 +822,8 @@ def rewrite(update: Update, context: CallbackContext) -> check_info:
     If they are changing an active ingredient or description, it changes that field in DRUG_INFO
     and then calls check_info().
 
-    :param update:Update: Access the message that is being sent by the user
-    :param context:CallbackContext: Store the user data
+    :param update: Update: Access the message that is being sent by the user
+    :param context: CallbackContext: Store the user data
     :return: The check_info function
     """
     if context.user_data["change"] == "name":
@@ -851,8 +852,8 @@ def cancel(update: Update, context: CallbackContext) -> ConversationHandler.END:
     The cancel function is called when the user sends /cancel to the bot.
     It is used to stop a conversation used to add medicine.
 
-    :param update:Update: Access all the information of the new message sent by the user
-    :param context:CallbackContext: Pass information to the callback function
+    :param update: Update: Access all the information of the new message sent by the user
+    :param context: CallbackContext: Pass information to the callback function
     :return: Conversationhandler.END
     """
     user = update.message.from_user
@@ -876,8 +877,8 @@ def file_warning(update: Update, context: CallbackContext) -> None:
     It will reply with the following message:
     'Будь ласка, використовуйте фотографію, а не файл.'
 
-    :param update:Update: Access the message that was sent by the user
-    :param context:CallbackContext: Pass information between different parts of the program
+    :param update: Update: Access the message that was sent by the user
+    :param context: CallbackContext: Pass information between different parts of the program
     :return: None
     """
     user = update.message.from_user
@@ -901,8 +902,8 @@ def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
     The main_keyboard_handler function is a callback function that is called
     in order to show MAIN_REPLY_KEYBOARD to the user.
 
-    :param update:Update: Pass the current update to the function
-    :param context:CallbackContext: Pass information between different parts of the program
+    :param update: Update: Pass the current update to the function
+    :param context: CallbackContext: Pass information between different parts of the program
     :return: None
     """
     user = update.message.from_user
@@ -934,8 +935,8 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
     It is used to send instructions to users. It also returns ConversationHandler.END
 
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Send data back to the bot
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Send data back to the bot
     :return: ConversationHandler.END
     """
     user = update.message.from_user
@@ -976,14 +977,16 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
 @under_maintenance
 def register(update: Update, context: CallbackContext) -> int:
     """
-    The register function is used to register a new admin.
-    It is called when the user sends the /authorize commandto the bot.
-    First, it checks if admin is already registered, if yes it sends a promt message and cancels
-    registration process. If not, he function will ask user to send their contact
+    The register_experimental function is a callback function for the /authorize command.
+    It is used to register an admin user.
+    The function first checks if the user is already registered as an admin, and if so,
+    it cancels the registration process.
+    If not, it sends a message asking for contact information (phone number and username)
+    to be sent in order to move on to the next step of registration.
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Access the update_queue, dispatcher and bot attributes
-    :return: The value of the user_id
+    :param update: Update: Store all the data related to the bot
+    :param context: CallbackContext: Send data back to the conversation handler
+    :return: The next state of conversation
     """
     user = update.message.from_user
     user_id = update.effective_user.id
@@ -1013,7 +1016,7 @@ def register(update: Update, context: CallbackContext) -> int:
         text='🔐 Реєстрація потрібна для забеспечення безпеки та зменшення кількості спаму'
              '\n\n✅ *Аби зареєструватись, оберіть опцію "Надіслати контакт"*'
              '\n\n↩️ Якщо ви не бажаєте реєструватись, оберіть опцію "Скасувати реєстрацію"'
-             '\n❕ Зверніть увагу \- не пройшовши авторизацію ви *не зможете* вносити зміни до бази даних',
+             '\n\n❕ Зверніть увагу \- не пройшовши авторизацію ви *не зможете* вносити зміни до бази даних',
         parse_mode="MarkdownV2",
         reply_markup=reply_markup)
 
@@ -1021,33 +1024,111 @@ def register(update: Update, context: CallbackContext) -> int:
 
 
 @under_maintenance
-def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.END:
+def get_admin_photo(update: Update, context: CallbackContext) -> int:
     """
-    The add_admin function adds a new admin to the database.
+    The get_admin_photo_experimental function is called when the user sends a contact.
+    It stores the phone number in context.user_data, and then asks for a selfie photo to be sent.
 
-
-    :param update:Update: Pass the incoming update
-    :param context:CallbackContext: Pass data between the callback functions
-    :return: Conversationhandler.END
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Send data between functions
+    :return: The next state of the concersation
     """
     logger.info("User send contact")
 
-    reply_keyboard = MAIN_REPLY_KEYBOARD
+    reply_keyboard = [['Скасувати реєстрацію']]
 
     user_id = update.effective_user.id
     user = update.message.from_user
-    phone_number_markdown = update.message.contact.phone_number.replace('+', '\+')
 
-    post_id = admins_collection.insert_one(update.message.contact.to_dict()).inserted_id
-    logger.info("Added new admin successfully. Admin ID: {}".format(user_id))
+    context.user_data["phone_number_markdown"] = update.message.contact.phone_number.replace('+', '\+')
+    logger.info("Storing admin phone number")
+
+    context.user_data["ADMIN_INFO"] = update.message.contact.to_dict()
+    logger.info("Storing admin contact info")
 
     update.message.reply_text(
-        text=f"✅ *{user.first_name}*, Вас успішно зареєстровано як адміністратора"
-             f"\n\nВаш ID: *{user_id}*"
-             f"\nВаш номер телефону: *{phone_number_markdown}*",
+        text='👤 *Тепер, надішліть, будь ласка, фото свого обличчя*'
+             '\n\n😃 Не лякайтесь\! Ця процедура потрібна для підвищення безпеки під час війни\.'
+             ' Диверсанти не мають мати доступу до такої інформації\.'
+             '\n\n🔒 Ми подбаємо про *конфіденційність та безпеку* ваших даних\.'
+             ' Уся інформація зберігається на *захищених серверах*\. Ми *не будемо поширювати* її\.'
+             '\n\n❕ Будь ласка, використовуйте реальну фотографію вашого обличчя\.'
+             ' Фотографуйте при хорошому освітленні та старайтесь, щоб ваше обличчя було добре видно на фото\.'
+             '\n\n❗️ Вам буде заблоковано доступ за використання несправжніх фотографій обличчя\.',
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          one_time_keyboard=True,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Надішліть фото'))
+
+    return ADMIN_PHOTO
+
+
+@under_maintenance
+def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.END:
+    """
+    The add_admin function checks whether user sent correct photo. If there are no faces or too many faces on photo
+    it asks user to send it agait and returns the previous state of the conversation.
+    If everything is fine it adds a new admin to the database.
+    It takes in an update and context objects as arguments, and returns ConversationHandler.END
+    to end the conversation after it is completed.
+
+    :param update: Update: Pass the incoming update
+    :param context: CallbackContext: Store data on the user's conversation flow
+    :return: Conversationhandler.END
+    """
+    user_id = update.effective_user.id
+    user = update.message.from_user
+
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
+    if update.message.photo:
+        logger.info("User sent photo")
+
+        id_img = update.message.photo[-1].file_id
+        photo = context.bot.getFile(id_img)
+        image_bytes = io.BytesIO()
+        photo.download(out=image_bytes)
+    else:
+        return
+
+    face = faces.find_faces(image_bytes.getvalue())
+
+    if face == 'Too many faces':
+        logger.info("Too many faces")
+
+        update.message.reply_text(
+            text='*На цій фотографії більше одного обличчя\.* '
+                 '\n\nНадішліть, будь ласка, коректну фотографію',
+            parse_mode="MarkdownV2"
+        )
+
+        return ADMIN_PHOTO
+    elif face == 'Face not found':
+        logger.info("Face not found")
+
+        update.message.reply_text(
+            text='*Мені не вдалося знайти обличчя на цій фотографії\.* '
+                 '\n\nНадішліть, будь ласка, фотографію, де чітко видко ваше обличчя',
+            parse_mode="MarkdownV2"
+        )
+        return ADMIN_PHOTO
+
+    context.user_data["ADMIN_INFO"]["photo"] = image_bytes.getvalue()
+    logger.info("Storing admin photo")
+
+    context.user_data["ADMIN_INFO"]["registred_on"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+
+    post_id = admins_collection.insert_one(context.user_data["ADMIN_INFO"]).inserted_id
+    logger.info("Added new admin successfully. Admin ID: {}".format(user_id))
+
+    update.message.reply_photo(
+        face,
+        caption=f"✅ *{user.first_name}*, Вас успішно зареєстровано як адміністратора"
+                f"\n\nВаш ID: *{user_id}*"
+                f"\nВаш номер телефону: *{context.user_data['phone_number_markdown']}*",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію')
     )
@@ -1061,8 +1142,8 @@ def cancel_register(update: Update, context: CallbackContext) -> ConversationHan
     The cancel_register function is called when the user sends a message with text 'Скасувати реєстрацію'
     It cancels the registration process and returns to main menu
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Pass information from the handler to the callback function
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Pass information from the handler to the callback function
     :return: ConversationHandler.END
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
@@ -1088,8 +1169,8 @@ def start_report(update: Update, context: CallbackContext) -> int:
     It checks if there is a drug code in context and if it's not 0, and it's present in the database, then it asks for
     a description of problem with drug from user.
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Store data between calls
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Store data between calls
     :return: The next state of the conversation
     """
     reply_keyboard = [['Скасувати']]
@@ -1136,8 +1217,8 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     The add_report_description function takes in an update and context object as arguments.
     It then saves the report description to MongoDB, and replies with a confirmation message.
 
-    :param update:Update: Pass on any information that has been passed to the handler
-    :param context:CallbackContext: Store data in the context
+    :param update: Update: Pass on any information that has been passed to the handler
+    :param context: CallbackContext: Store data in the context
     :return: Conversationhandler.END
     """
     report_description = update.message.text
@@ -1177,8 +1258,8 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
     The cancel_report function is called when the user cancels their report.
     It removes the drug code from context and returns to main menu.
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Pass data between states
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Pass data between states
     :return: Conversationhandler.END
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
@@ -1203,8 +1284,8 @@ def cancel_default(update: Update, context: CallbackContext) -> None:
     The cancel_default function is called when the user presses the cancel button.
     It returns user to the main menu.
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Access the context data of a callback query
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Access the context data of a callback query
     :return: None
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
@@ -1228,8 +1309,8 @@ def start_review(update: Update, context: CallbackContext) -> int:
     with /review command. It will ask for review text.
 
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Pass data between different parts of the program
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Pass data between different parts of the program
     :return: The next state of the conversation
     """
     reply_keyboard = [['Скасувати']]
@@ -1255,8 +1336,8 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
     The send_review function sends a review to the MSB admins.
     It takes in an update and context objects as parameters, and returns ConversationHandler.END.
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Access data,
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Access data,
     :return: Conversationhandler.END
     """
     review_msg = update.message.text
@@ -1365,8 +1446,8 @@ def statistics_for_user(update: Update, context: CallbackContext) -> int:
     The statistics_for_user function is used to get statistics for a specific user.
     It takes the update and context objects as parameters, then asks the user to input an ID of a user.
 
-    :param update:Update: Access the context of the conversation
-    :param context:CallbackContext: Pass data between the callback functions
+    :param update: Update: Access the context of the conversation
+    :param context: CallbackContext: Pass data between the callback functions
     :return: The user's id
     """
     reply_keyboard = [['Скасувати']]
@@ -1392,8 +1473,18 @@ def get_admin_info(user_id):
     """
     logger.info("Getting admin info")
 
-    admin_info = admins_collection.find_one({"user_id": user_id}, {"_id": 0})
+    admin_info = admins_collection.find_one({"user_id": user_id}, {"_id": 0, "photo": 0})
     return "\nІнформація: " + json.dumps(admin_info, sort_keys=False, ensure_ascii=False, indent=4)
+
+
+def retrieve_admin_photo(user_id):
+    """
+    EXPERIMENTAL FUNCTION
+    """
+    logger.info("Getting admin photo")
+
+    admin_info = admins_collection.find_one({"user_id": user_id}, {"_id": 0, "photo": 1})
+    return admin_info["photo"]
 
 
 def get_banned_info(user_id):
@@ -1409,14 +1500,33 @@ def get_banned_info(user_id):
     return "\nІнформація: " + json.dumps(banned_info, sort_keys=False, ensure_ascii=False, indent=4)
 
 
+def get_reports_by_user_quantity(user_id):
+    """
+    EXPERIMENTAL FUNCTION
+    """
+    logger.info("Getting admin info")
+
+    reported_medicine = collection.find({"report": {'$exists': 'true'}})
+
+    reports_quantity = 0
+
+    for medicine in reported_medicine:
+        if f"[{user_id}]" in medicine["report"]:
+            reports_quantity += 1
+        else:
+            continue
+
+    return reports_quantity
+
+
 @under_maintenance
-def show_statistics(update: Update, context: CallbackContext) -> int:
+def show_statistics(update: Update, context: CallbackContext) -> int or None:
     """
     The show_statistics function is used to show the statistics of a user.
     It returns send files state of the conversation.
 
-    :param update:Update: Pass the incoming update
-    :param context:CallbackContext: Pass data between callbacks
+    :param update: Update: Pass the incoming update
+    :param context: CallbackContext: Pass data between callbacks
     :return: The next state of conversation
     """
     reply_keyboard = [['Завершити']]
@@ -1428,7 +1538,7 @@ def show_statistics(update: Update, context: CallbackContext) -> int:
         logger.info("Collecting user info by ID")
 
         documents_quantity = collection.count_documents({"user_id": entered_id})
-        reports_quantity = collection.count_documents({"user_id": entered_id, "report": {'$exists': 'true'}})
+        reports_on_user = collection.count_documents({"user_id": entered_id, "report": {'$exists': 'true'}})
         is_admin = admins_collection.count_documents({"user_id": entered_id}) > 0
         is_banned = blacklist.count_documents({"user_id": entered_id}) > 0
 
@@ -1455,31 +1565,48 @@ def show_statistics(update: Update, context: CallbackContext) -> int:
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Оберіть опцію')
             )
+            return
+
+        reports_by_user = get_reports_by_user_quantity(entered_id)
+
+        if is_banned:
+            banned_info = get_banned_info(entered_id)
         else:
-            if is_admin:
-                admin_info = get_admin_info(entered_id)
-            else:
-                admin_info = ''
+            banned_info = ''
 
-            if is_banned:
-                banned_info = get_banned_info(entered_id)
-            else:
-                banned_info = ''
+        if reports_on_user > 0:
+            reply_keyboard[0].insert(0, 'Отримати список скарг')
 
-            if reports_quantity > 0:
-                reply_keyboard[0].insert(0, 'Отримати список скарг')
+        if documents_quantity > 0:
+            reply_keyboard[0].insert(0, 'Отримати додані медикаменти')
 
-            if documents_quantity > 0:
-                reply_keyboard[0].insert(0, 'Отримати додані медикаменти')
+        logger.info("Retrieving statistics")
 
-            logger.info("Retrieving statistics")
+        if is_admin:
+            admin_info = get_admin_info(entered_id)
 
-            update.message.reply_text(
-                text="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
+            update.message.reply_photo(
+                retrieve_admin_photo(entered_id),
+                caption="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
                 f"<b>Додано медикаментів</b>: {documents_quantity}"
-                f"\n<b>Поданих скарг на інформацію</b>: {reports_quantity}"
+                f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
+                f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
                 f"\n<b>Чи є адміністратором</b>: {is_admin}{admin_info}"
                 f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                                 one_time_keyboard=True,
+                                                 resize_keyboard=True,
+                                                 input_field_placeholder='Оберіть опцію')
+            )
+        else:
+            update.message.reply_text(
+                text="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
+                     f"<b>Додано медикаментів</b>: {documents_quantity}"
+                     f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
+                     f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
+                     f"\n<b>Чи є адміністратором</b>: {is_admin}"
+                     f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                                  one_time_keyboard=True,
@@ -1499,8 +1626,8 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
     The function first checks if the entered_id is valid, and then it creates two files: one for medicine data,
     another for report data. Then it sends these files to the user.
 
-    :param update:Update: Pass on the update to the function
-    :param context:CallbackContext: Store data on the conversation between functions
+    :param update: Update: Pass on the update to the function
+    :param context: CallbackContext: Store data on the conversation between functions
     :return: Conversationhandler.END
     """
     entered_id = context.user_data["entered_id"]
@@ -1556,8 +1683,8 @@ def cancel_statistics(update: Update, context: CallbackContext) -> ConversationH
     It sends a message saying that getting statistics process has been canceled
     and returns user to the main menu.
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Pass data between the callback functions
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Pass data between the callback functions
     :return: Conversationhandler.END
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
@@ -1582,8 +1709,8 @@ def start_ban(update: Update, context: CallbackContext) -> int:
     that contains /ban command. The usage if this function is restricted to only for superusers.
     The function will ask user to send ID of the user he wants to ban
 
-    :param update:Update: Access the data received by the bot
-    :param context:CallbackContext: Pass the context of a callback query
+    :param update: Update: Access the data received by the bot
+    :param context: CallbackContext: Pass the context of a callback query
     :return: The id of the user to be banned
     """
     logger.info("/ban. Asking for the ID")
@@ -1607,8 +1734,8 @@ def get_reason(update: Update, context: CallbackContext) -> int:
     It takes in an update and a context as parameters, and stores user ID in the context.user_data.
     Finalli it returns the ban state of the conversation
 
-    :param update:Update: Access the message that was sent by the user
-    :param context:CallbackContext: Store data in the context
+    :param update: Update: Access the message that was sent by the user
+    :param context: CallbackContext: Store data in the context
     :return: The reason for blocking the user
     """
     reply_keyboard = [['Скасувати']]
@@ -1633,8 +1760,8 @@ def ban_user(update: Update, context: CallbackContext) -> ConversationHandler.EN
     The ban_user function takes in an update and a context as parameters, and returns ConversationHandler.END.
     It inserts banned user info to the blacklist collection of the database and sends a confirmation message.
 
-    :param update:Update: Access the message object, which contains information about the user and
-    :param context:CallbackContext: Pass data between callbacks
+    :param update: Update: Access the message object, which contains information about the user and
+    :param context: CallbackContext: Pass data between callbacks
     :return: Conversationhandler.END
     """
     reply_keyboard = MAIN_REPLY_KEYBOARD
@@ -1668,8 +1795,8 @@ def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.
     It removes a user ID from the context.user_data and sends them a message
     saying that ban process has been canceled. Then returns user to the main menu.
 
-    :param update:Update: Access the telegram api
-    :param context:CallbackContext: Pass data between the callback functions
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Pass data between the callback functions
     :return: Conversationhandler.END
     """
     logger.info("Ban cancelled")
@@ -1695,11 +1822,13 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     The send_plot function sends a plot of the number of drugs per country to the user.
 
 
-    :param update:Update: Access the message object
-    :param context:CallbackContext: Send messages to the user
+    :param update: Update: Access the message object
+    :param context: CallbackContext: Send messages to the user
     :return: None
     """
     logger.info("Sending countries statistics plot")
+
+    keyboard = [[InlineKeyboardButton(text="Інтеракивна карта", url='https://countries-map.herokuapp.com/')]]
 
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
 
@@ -1714,7 +1843,8 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     update.message.reply_photo(
         img_buf.getvalue(),
         caption="*Статистика по країнах на основі колекції медикаментів*",
-        parse_mode="MarkdownV2"
+        parse_mode="MarkdownV2",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
 
@@ -1776,7 +1906,10 @@ def main() -> None:
         entry_points=[CommandHandler('authorize', register)],
         states={
             CONTACT: [
-                MessageHandler(Filters.contact & ~Filters.command, add_admin)
+                MessageHandler(Filters.contact & ~Filters.command, get_admin_photo)
+            ],
+            ADMIN_PHOTO: [
+                MessageHandler(Filters.photo & ~Filters.command, add_admin)
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_register),

@@ -255,7 +255,9 @@ def retrieve_db_photo(barcode) -> bytes or None:
     :return: bytes
     """
     try:
-        query_result = collection.find_one({"code": barcode}, {"_id": 0})
+        query_result = collection.find_one({"code": barcode}, {"_id": 0, "photo": 1})
+
+        assert query_result is not None
 
         if query_result['photo'] == b'':
             logger.info("Database quired. Field 'photo' is empty")
@@ -264,8 +266,7 @@ def retrieve_db_photo(barcode) -> bytes or None:
         logger.info("Database quired. Retrieving photo")
         img = query_result['photo']
         return img
-    except Exception as e:
-        logger.info(e)
+    except AssertionError:
         return
 
 
@@ -276,16 +277,14 @@ def scan_barcode(image_bytes: io.BytesIO) -> str:
     :param image_bytes:io.BytesIO: Pass the image from the camera to the decode function
     :return: The string representation of the barcode that it decodes
     """
-    try:
-        logger.info("Trying to decode")
-        result = decode(Image.open(image_bytes))
 
-        assert result
-    except AssertionError:
-        logger.info("Failed to scan. Asking to retry")
-    else:
-        barcode = result[0].data.decode("utf-8")
-        return barcode
+    logger.info("Trying to decode")
+    result = decode(Image.open(image_bytes))
+
+    assert result
+
+    barcode = result[0].data.decode("utf-8")
+    return barcode
 
 
 @under_maintenance
@@ -295,8 +294,8 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
     It checks if the barcode is present in our database and, if so, sends it to the user.
     If not, it asks them whether they want to add information about this drug.
 
-    :param update:Update: Access the message (if any) sent when the command /start was issued
-    :param context:CallbackContext: Send data back to the conversation handler
+    :param update: Update: Access the message (if any) sent when the command /start was issued
+    :param context: CallbackContext: Send data back to the conversation handler
     :return: None
     """
     user = update.message.from_user
@@ -314,6 +313,8 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
     try:
         barcode = scan_barcode(image_bytes)
     except AssertionError:
+        logger.info("Failed to scan")
+
         reply_keyboard = [['Ще раз', 'Інструкції']]
 
         update.message.reply_text(

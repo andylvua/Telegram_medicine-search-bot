@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.6.2 Development
+Version: 2.6.3 Development
 """
 from datetime import datetime
 
@@ -256,13 +256,12 @@ def retrieve_db_photo(barcode) -> bytes or None:
     """
     try:
         query_result = collection.find_one({"code": barcode}, {"_id": 0})
-        logger.info("Database quired")
 
         if query_result['photo'] == b'':
-            logger.info("Field 'photo' is empty")
+            logger.info("Database quired. Field 'photo' is empty")
             return
 
-        logger.info("Retrieving photo")
+        logger.info("Database quired. Retrieving photo")
         img = query_result['photo']
         return img
     except Exception as e:
@@ -270,8 +269,36 @@ def retrieve_db_photo(barcode) -> bytes or None:
         return
 
 
+def scan_barcode(image_bytes: io.BytesIO) -> str:
+    """
+    The scan_barcode function takes in an image file and returns the barcode contained within it.
+
+    :param image_bytes:io.BytesIO: Pass the image from the camera to the decode function
+    :return: The string representation of the barcode that it decodes
+    """
+    try:
+        logger.info("Trying to decode")
+        result = decode(Image.open(image_bytes))
+
+        assert result
+    except AssertionError:
+        logger.info("Failed to scan. Asking to retry")
+    else:
+        barcode = result[0].data.decode("utf-8")
+        return barcode
+
+
 @under_maintenance
 def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
+    """
+    The retrieve_scan_results function is called when the user scans a barcode.
+    It checks if the barcode is present in our database and, if so, sends it to the user.
+    If not, it asks them whether they want to add information about this drug.
+
+    :param update:Update: Access the message (if any) sent when the command /start was issued
+    :param context:CallbackContext: Send data back to the conversation handler
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: Photo received", user.first_name)
 
@@ -285,11 +312,22 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
     photo.download(out=image_bytes)
 
     try:
-        logger.info("Trying to decode")
+        barcode = scan_barcode(image_bytes)
+    except AssertionError:
+        reply_keyboard = [['Ще раз', 'Інструкції']]
 
-        result = decode(Image.open(image_bytes))
-        barcode = result[0].data.decode("utf-8")
-
+        update.message.reply_text(
+            text="*На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код ❌ *"
+                 "\nСпробуйте ще раз, або подивіться інструкції до сканування та "
+                 "переконайтесь, що робите все правильно\.",
+            quote=True,
+            parse_mode='MarkdownV2',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             one_time_keyboard=True,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Оберіть опцію')
+        )
+    else:
         logger.info("Decoded successfully")
 
         context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
@@ -297,13 +335,14 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
         reply_keyboard2 = [['Так', 'Ні']]
 
-        if db_check_availability(barcode) and retrieve_db_photo(barcode) is not None:
+        is_available = db_check_availability(barcode)
+        photo = retrieve_db_photo(barcode)
+
+        if is_available and photo is not None:
             logger.info("The barcode is present in the database")
-            img = retrieve_db_photo(barcode)
-            # img.save("retrieved_image.jpg")
 
             update.message.reply_photo(
-                img,
+                photo,
                 parse_mode='HTML',
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
@@ -314,7 +353,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 quote=True
             )
 
-        elif db_check_availability(barcode):
+        elif is_available:
             logger.info("The barcode is present in the database but photo is missing")
 
             update.message.reply_text(
@@ -345,23 +384,6 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 quote=True,
                 disable_web_page_preview=True
             )
-
-    except IndexError:
-        logger.info("Failed to scan. Asking to retry")
-
-        reply_keyboard = [['Ще раз', 'Інструкції']]
-
-        update.message.reply_text(
-            text="*На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код ❌ *"
-                 "\nСпробуйте ще раз, або подивіться інструкції до сканування та "
-                 "переконайтесь, що робите все правильно\.",
-            quote=True,
-            parse_mode='MarkdownV2',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
-        )
 
 
 @under_maintenance

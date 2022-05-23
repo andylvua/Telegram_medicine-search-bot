@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.5.3 Development
+Version: 2.5.4 Development
 """
 from functools import wraps
 
@@ -25,7 +25,8 @@ import re
 from pymongo import MongoClient
 
 logging.basicConfig(
-    format='Time: %(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format='%(asctime)s.%(msecs)03d - %(name)s - %(funcName)s() - %(levelname)s - %(message)s',
+    datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 

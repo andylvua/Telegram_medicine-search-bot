@@ -208,11 +208,11 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
 
 def get_db_query_result(barcode) -> bool or None:
     """
-    The db_check_availability function checks if the code is already in the database.
-    If it is, it returns True. If not, it returns False.
+    The get_db_query_result function takes a barcode as an argument and returns the result of a MongoDB query.
+    If no results are found, it returns None.
 
-    :param barcode: Check if the code is already in the database
-    :return: A boolean value
+    :param barcode: Check if the barcode exists in the database
+    :return: A dictionary with the product information if the barcode exists in the database
     """
     try:
         logger.info("Database quired. Checking availability")
@@ -228,11 +228,12 @@ def get_db_query_result(barcode) -> bool or None:
 
 def format_query(query_result) -> str or None:
     """
-    The retrieve_db_query function takes a barcode as an argument and returns the formatted result of a MongoDB query.
-    The function will return None if no results are found.
+    The format_query function takes a query result and returns a string
+    representation of the query result. This is used for displaying
+    query results in human-readable format.
 
-    :param query_result: Specify the code of the medicine that we want to retrieve from the database
-    :return: The formatted query result str_output
+    :param query_result: Retrieve the information from the database
+    :return: A string containing the name, active ingredient and description of the drug
     """
     try:
         logger.info("Retrieving info")
@@ -247,12 +248,10 @@ def format_query(query_result) -> str or None:
 
 def retrieve_query_photo(query_result) -> bytes or None:
     """
-    The retrieve_db_photo function retrieves a photo from the database.
-    It takes in a barcode as its parameter, and returns a bytes if it exists in the database,
-    otherwise it returns None.
+    The retrieve_query_photo function retrieves the photo from a query result.
 
-    :param query_result: Specify the code of the photo that is going to be retrieved from the database
-    :return: bytes
+    :param query_result: Retrieve the photo from the database
+    :return: The binary data of the photo
     """
     try:
         assert query_result is not None

@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.6.4 Development
+Version: 2.6.5 Development
 """
 from datetime import datetime
 
@@ -206,7 +206,7 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
-def db_check_availability(barcode) -> bool or None:
+def get_db_query_result(barcode) -> bool or None:
     """
     The db_check_availability function checks if the code is already in the database.
     If it is, it returns True. If not, it returns False.
@@ -216,26 +216,26 @@ def db_check_availability(barcode) -> bool or None:
     """
     try:
         logger.info("Database quired. Checking availability")
-        if collection.count_documents({"code": barcode}) != 0:
-            return True
-        else:
-            return False
+        query_result = collection.find_one({"code": barcode}, {"_id": 0})
+        if query_result is None:
+            return
+
+        return query_result
     except Exception as e:
         logger.error(e)
         return
 
 
-def retrieve_db_query(barcode) -> str or None:
+def format_query(query_result) -> str or None:
     """
     The retrieve_db_query function takes a barcode as an argument and returns the formatted result of a MongoDB query.
     The function will return None if no results are found.
 
-    :param barcode: Specify the code of the medicine that we want to retrieve from the database
+    :param query_result: Specify the code of the medicine that we want to retrieve from the database
     :return: The formatted query result str_output
     """
     try:
-        logger.info("Database quired. Retrieving info")
-        query_result = collection.find_one({"code": barcode}, {"_id": 0})
+        logger.info("Retrieving info")
         str_output = f"<b>Назва</b>: {query_result['name']} " \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
                      f"\n<b>Опис</b>: {query_result['description']} "
@@ -245,25 +245,23 @@ def retrieve_db_query(barcode) -> str or None:
         return
 
 
-def retrieve_db_photo(barcode) -> bytes or None:
+def retrieve_query_photo(query_result) -> bytes or None:
     """
     The retrieve_db_photo function retrieves a photo from the database.
     It takes in a barcode as its parameter, and returns a bytes if it exists in the database,
     otherwise it returns None.
 
-    :param barcode: Specify the code of the photo that is going to be retrieved from the database
+    :param query_result: Specify the code of the photo that is going to be retrieved from the database
     :return: bytes
     """
     try:
-        query_result = collection.find_one({"code": barcode}, {"_id": 0, "photo": 1})
-
         assert query_result is not None
 
         if query_result['photo'] == b'':
-            logger.info("Database quired. Field 'photo' is empty")
+            logger.info("Field 'photo' is empty")
             return
 
-        logger.info("Database quired. Retrieving photo")
+        logger.info("Retrieving photo")
         img = query_result['photo']
         return img
     except AssertionError:
@@ -336,10 +334,10 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
         reply_keyboard2 = [['Так', 'Ні']]
 
-        is_available = db_check_availability(barcode)
-        photo = retrieve_db_photo(barcode)
+        query_result = get_db_query_result(barcode)
+        photo = retrieve_query_photo(query_result)
 
-        if is_available and photo is not None:
+        if query_result and photo is not None:
             logger.info("The barcode is present in the database")
 
             update.message.reply_photo(
@@ -350,11 +348,11 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                                                  input_field_placeholder='Продовжуйте'),
                 caption='✅ Штрих-код ' + '<b>' + barcode + '</b>' +
                         ' наявний у моїй базі даних:\n\n' +
-                        retrieve_db_query(barcode),
+                        format_query(query_result),
                 quote=True
             )
 
-        elif is_available:
+        elif query_result:
             logger.info("The barcode is present in the database but photo is missing")
 
             update.message.reply_text(
@@ -364,7 +362,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                                                  input_field_placeholder='Продовжуйте'),
                 text='✅ Штрих-код ' + '<b>' + barcode + '</b>' +
                      ' наявний у моїй базі даних:\n\n' +
-                     retrieve_db_query(barcode) +
+                     format_query(query_result) +
                      '\n\n⚠️ Фото відсутнє',
                 quote=True
             )
@@ -461,7 +459,7 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
 
         logger.info("Decoded successfully")
 
-        if db_check_availability(barcode):
+        if get_db_query_result(barcode):
             logger.info("This barcode already exists. Cancelling adding process")
 
             update.message.reply_text(
@@ -1211,7 +1209,7 @@ def start_report(update: Update, context: CallbackContext) -> int:
         )
         scan_handler(update=update, context=context)
         return ConversationHandler.END
-    if db_check_availability(drug_info["code"]) is False:
+    if get_db_query_result(drug_info["code"]) is None:
         logger.info("Barcode is missing from the DB. Cancelling report")
 
         update.message.reply_text(

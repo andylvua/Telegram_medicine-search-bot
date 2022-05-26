@@ -5,7 +5,7 @@ Version: 2.6.5 Development
 from datetime import datetime
 
 from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction, InlineKeyboardButton, \
-    InlineKeyboardMarkup
+    InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 from PIL import Image
@@ -1017,7 +1017,8 @@ def register(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text="☑️ Ви вже пройшли авторизацію. Вас зареєстровано як адміністратора",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard)
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             resize_keyboard=True,)
         )
         return ConversationHandler.END
 
@@ -1844,7 +1845,8 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     """
     logger.info("Sending countries statistics plot")
 
-    keyboard = [[InlineKeyboardButton(text="Інтеракивна карта", url='https://countries-map.herokuapp.com/')]]
+    keyboard = [[InlineKeyboardButton(text="Інтеракивна карта",
+                                      web_app=WebAppInfo(url='https://countries-map.herokuapp.com/'))]]
 
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
 
@@ -1860,7 +1862,8 @@ def send_plot(update: Update, context: CallbackContext) -> None:
         img_buf.getvalue(),
         caption="*Статистика по країнах на основі колекції медикаментів*",
         parse_mode="MarkdownV2",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(keyboard,
+                                          resize_keyboard=True,)
     )
 
 

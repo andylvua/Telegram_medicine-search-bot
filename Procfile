@@ -1,1 +1,1 @@
-bot: python python_bot.py
+bot: python medicine_search_bot.py

@@ -435,22 +435,22 @@ def get_query_heading(barcode) -> str:
     :param barcode: Barcode for the Google search
     :return: A string containing the first heading of a search query
     """
-    url = 'https://google.com/search?q=' + barcode
+    url = 'https://google.com/search?hl=uk&q=' + barcode
 
     request_result = requests.get(url)
     soup = bs4.BeautifulSoup(request_result.text, "html.parser")
 
     heading_objects = soup.find_all('h3')
 
-    first_5_headings = heading_objects[0:5]
+    first_3_headings = heading_objects[0:3]
 
-    for heading in first_5_headings:
+    for heading in first_3_headings:
         if detect(heading.getText()) == "uk":
             result_heading = heading.getText()
             break
     else:
         print("No uk language found")
-        result_heading = first_5_headings[0].getText()
+        result_heading = first_3_headings[0].getText()
 
     result_heading_formatted = re.sub(r"\([^()]*\)", "", result_heading.split(' - ')[0]
                                       .replace(barcode, '')).lstrip().rstrip('.').rstrip()

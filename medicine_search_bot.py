@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.5.5 Development
+Version: 2.6.5 Development
 """
 from functools import wraps
 
@@ -25,7 +25,8 @@ import re
 from pymongo import MongoClient
 
 logging.basicConfig(
-    format='%(asctime)s.%(msecs)03d - %(name)s - %(funcName)s() - %(levelname)s - %(message)s',
+    format='%(asctime)s.%(msecs)03d - medicine_search_bot.py - %(name)s - %(funcName)s() - '
+           '%(levelname)s - %(message)s',
     datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ def under_maintenance(func):
 
 
 @under_maintenance
-def start_handler(update: Update, context: CallbackContext) -> None:
+def start_handler(update: Update, context: CallbackContext) -> ConversationHandler.END:
     """
     The start_handler function is called when the user sends a message to the bot
     that contains the command /start. It is used to introduce users to our bot and
@@ -84,7 +85,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
 
     :param update:Update: Access the message object
     :param context:CallbackContext: Store data that will be passed between the callback functions
-    :return: None
+    :return: ConversationHandler.END
     """
 
     user = update.message.from_user
@@ -103,6 +104,8 @@ def start_handler(update: Update, context: CallbackContext) -> None:
             reply_keyboard, resize_keyboard=True, input_field_placeholder='Оберіть опцію'
         ),
     )
+
+    return ConversationHandler.END
 
 
 @under_maintenance
@@ -1058,6 +1061,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_report),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
@@ -1069,6 +1073,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_report),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
@@ -1083,6 +1088,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_search),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати"), cancel_search)]
     )
 

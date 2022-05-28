@@ -27,7 +27,8 @@ import statistics
 import face_recognition as faces
 
 logging.basicConfig(
-    format='%(asctime)s.%(msecs)03d - %(name)s - %(funcName)s() - %(levelname)s - %(message)s',
+    format='%(asctime)s.%(msecs)03d - database_management_bot.py - %(name)s - %(funcName)s() - '
+           '%(levelname)s - %(message)s',
     datefmt='%d/%m/%Y %H:%M:%S', level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -153,7 +154,7 @@ def restricted(func):
 
 
 @under_maintenance
-def start_handler(update: Update, context: CallbackContext) -> None:
+def start_handler(update: Update, context: CallbackContext) -> ConversationHandler.END:
     """
     The start_handler function is called when the user sends a message to the bot
     that contains the command /start. It is used to initialize and reset all variables
@@ -161,7 +162,7 @@ def start_handler(update: Update, context: CallbackContext) -> None:
 
     :param update: Update: Update the user interface
     :param context: CallbackContext: Store data during the conversation
-    :return: None
+    :return: ConversationHandler.END
     """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
@@ -189,6 +190,8 @@ def start_handler(update: Update, context: CallbackContext) -> None:
                                          resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію')
     )
+
+    return ConversationHandler.END
 
 
 @under_maintenance
@@ -758,7 +761,7 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
                                              input_field_placeholder="Оберіть опцію")
         )
 
-        logger.info("Clearing info: %s", context.user_data["DRUG_INFO"])
+        logger.info("Clearing info")
         context.user_data["DRUG_INFO"].clear()
         logger.info("Cleared")
 
@@ -1848,23 +1851,30 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     keyboard = [[InlineKeyboardButton(text="Інтеракивна карта",
                                       web_app=WebAppInfo(url='https://countries-map.herokuapp.com/'))]]
 
-    context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
+    loading_message = update.message.reply_text(
+        text="📥 Отримання інформації з бази даних, зачекайте...",
+    )
 
     quantities = statistics.get_quantities('resources/country_codes.json')
-    not_empty_countries = statistics.get_not_empty_countries(quantities)
 
+    context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
+
+    not_empty_countries = statistics.get_not_empty_countries(quantities)
     plot = statistics.get_bar_chart(not_empty_countries)
 
     img_buf = io.BytesIO()
     plot.savefig(img_buf, format='png')
 
+    img = img_buf.getvalue()
+
     update.message.reply_photo(
-        img_buf.getvalue(),
+        img,
         caption="*Статистика по країнах на основі колекції медикаментів*",
         parse_mode="MarkdownV2",
-        reply_markup=InlineKeyboardMarkup(keyboard,
-                                          resize_keyboard=True,)
+        reply_markup=InlineKeyboardMarkup(keyboard, resize_keyboard=True)
     )
+
+    loading_message.delete()
 
 
 def main() -> None:
@@ -1917,6 +1927,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати додавання"), cancel),
                    CommandHandler("help", instructions_handler)]
     )
@@ -1932,6 +1943,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_register),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати реєстрацію"), cancel_register)]
     )
 
@@ -1943,6 +1955,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_report),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
@@ -1954,6 +1967,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_report),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
@@ -1968,6 +1982,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_statistics),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.regex('^(Скасувати|Завершити)$'), cancel_statistics)]
     )
 
@@ -1982,6 +1997,7 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_ban),
+                   CommandHandler('start', start_handler),
                    MessageHandler(Filters.text("Скасувати"), cancel_ban)]
     )
 

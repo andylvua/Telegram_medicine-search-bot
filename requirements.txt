@@ -5,6 +5,8 @@ requests~=2.27.1
 bs4~=0.0.1
 beautifulsoup4==4.11.1
 pymongo~=4.1.1
+pymongo[srv]
+dnspython
 polyglot~=16.7.4
 PyICU==2.9
 pycld2==0.41
@@ -14,3 +16,6 @@ seaborn~=0.11.2
 pandas~=1.4.2
 opencv-python==4.5.5.64
 numpy==1.22.4
+geopy~=2.2.0
+pycountry_convert
+regex_engine

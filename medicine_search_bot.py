@@ -507,7 +507,7 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
-        '☑️ Гаразд, операцію скасовано',
+        '☑️ Усі операції скасовано',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
                                          input_field_placeholder='Оберіть опцію'),
@@ -1093,14 +1093,14 @@ def main() -> None:
     dispatcher.add_handler(search)
     dispatcher.add_handler(scan)
     dispatcher.add_handler(end_scan)
-    dispatcher.add_handler(cancel)
     dispatcher.add_handler(instructions)
     dispatcher.add_handler(continue_scan)
     dispatcher.add_handler(decoder)
-    dispatcher.add_handler(not_file)
     dispatcher.add_handler(about)
     dispatcher.add_handler(review_handler)
     dispatcher.add_handler(report_handler)
+    dispatcher.add_handler(cancel)
+    dispatcher.add_handler(not_file)
 
     updater.start_polling()
     updater.idle()

@@ -606,14 +606,23 @@ def get_photo(update: Update, context: CallbackContext) -> int:
 
     description = update.message.text
     try:
-        if validators.check_description(description) != description:
+        if validators.check_description(description) == "Too few words":
             logger.info("Description is not correct, asking to retry")
 
             reply_keyboard = [['Скасувати додавання']]
 
             update.message.reply_text(
-                text=f'Вкажіть, будь ласка, опис українською мовою'
-                     f'\n\nПоточна мова: {validators.check_description(description)}',
+                text=f'Опис має містити не менше 5 слів. Спробуйте ще раз',
+                reply_markup=ForceReply(input_field_placeholder="Повторіть")
+            )
+            return PHOTO
+        if validators.check_description(description) == "Wrong language":
+            logger.info("Description is not correct, asking to retry")
+
+            reply_keyboard = [['Скасувати додавання']]
+
+            update.message.reply_text(
+                text=f'Опис має бути лише українською мовою. Спробуйте ще раз',
                 reply_markup=ForceReply(input_field_placeholder="Повторіть")
             )
             return PHOTO

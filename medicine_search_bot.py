@@ -24,6 +24,8 @@ import re
 
 from pymongo import MongoClient
 
+from langdetect import detect
+
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - medicine_search_bot.py - %(name)s - %(funcName)s() - '
            '%(levelname)s - %(message)s',
@@ -439,11 +441,20 @@ def get_query_heading(barcode) -> str:
     soup = bs4.BeautifulSoup(request_result.text, "html.parser")
 
     heading_objects = soup.find_all('h3')
-    first_heading = heading_objects[0]
 
-    first_heading_formatted = re.sub(r"\([^()]*\)", "", first_heading.getText().split(' - ')[0]
-                                     .replace(barcode, '')).lstrip().rstrip('.').rstrip()
-    return first_heading_formatted
+    first_5_headings = heading_objects[0:5]
+
+    for heading in first_5_headings:
+        if detect(heading.getText()) == "uk":
+            result_heading = heading.getText()
+            break
+    else:
+        print("No uk language found")
+        result_heading = first_5_headings[0].getText()
+
+    result_heading_formatted = re.sub(r"\([^()]*\)", "", result_heading.split(' - ')[0]
+                                      .replace(barcode, '')).lstrip().rstrip('.').rstrip()
+    return result_heading_formatted
 
 
 @under_maintenance

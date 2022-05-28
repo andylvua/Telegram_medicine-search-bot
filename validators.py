@@ -1,5 +1,5 @@
 from typing import Optional
-from polyglot.detect import Detector
+from langdetect import detect
 
 
 def check_name(name) -> Optional[str]:
@@ -41,8 +41,9 @@ def check_description(description: str) -> str:
     :param description: Check if the description is in ukrainian
     :return: The description if it is ukrainian, and language otherwise
     """
-    try:
-        assert Detector(description).language.name == "Ukrainian"
-        return description
-    except AssertionError:
-        return Detector(description).language.name
+    if len(description.split()) < 5:
+        return "Too few words"
+    if detect(description) != "uk":
+        return "Wrong language"
+
+    return description

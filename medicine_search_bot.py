@@ -48,7 +48,7 @@ SEARCH = 1
 
 MAIN_REPLY_KEYBOARD = [['Сканувати', 'Пошук'], ['Інструкції', 'Налаштування', 'Надіслати відгук']]
 
-UNDER_MAINTENANCE = False
+UNDER_MAINTENANCE = os.environ.get('UNDER_MAINTENANCE') == "True"
 
 
 def under_maintenance(func):
@@ -362,8 +362,8 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
 
         reply_keyboard = [['Ще раз', 'Інструкції']]
 
-        update.message.reply_text(text="*На жаль, сталася помилка ❌ *"
-                                       "\nСпробуйте ще раз, або подивіться інструкції до сканування та "
+        update.message.reply_text(text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
+                                       "\n\nСпробуйте ще раз, або подивіться інструкції до сканування та "
                                        "переконайтесь, що робите все правильно\.",
                                   quote=True,
                                   parse_mode='MarkdownV2',

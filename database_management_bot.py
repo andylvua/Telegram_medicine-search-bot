@@ -52,7 +52,7 @@ REASON, BAN = range(2)
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
-UNDER_MAINTENANCE = False
+UNDER_MAIUNDER_MAINTENANCE = os.environ.get('UNDER_MAINTENANCE') == "True"
 
 
 def under_maintenance(func):

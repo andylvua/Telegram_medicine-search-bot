@@ -1,7 +1,9 @@
+import os
+
 import pandas as pd
 from pymongo import MongoClient
 
-import configparser
+from dotenv import load_dotenv
 import json
 
 import matplotlib.pyplot as plt
@@ -10,10 +12,9 @@ import seaborn as sns
 
 from regex_engine import generator
 
-config = configparser.ConfigParser()
-config.read("config.ini")
+load_dotenv()
 
-cluster = MongoClient(config['Database']['cluster'])
+cluster = MongoClient(os.environ.get('cluster'))
 db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 

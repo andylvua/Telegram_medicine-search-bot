@@ -1,12 +1,13 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.6.5 Development
+Version: 2.7.5 Development
 """
 from datetime import datetime
 
 from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction, InlineKeyboardButton, \
     InlineKeyboardMarkup, WebAppInfo
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext, \
+    CallbackQueryHandler
 
 from PIL import Image
 from pyzbar.pyzbar import decode
@@ -50,7 +51,6 @@ REVIEW = 1
 STATISTICS, SEND_FILES = range(2)
 REASON, BAN = range(2)
 
-
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
 UNDER_MAINTENANCE = True
@@ -64,6 +64,7 @@ def under_maintenance(func):
     :param func: Pass the wrapped function to the decorator
     :return: The function that was passed to it
     """
+
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         user_id = int(update.effective_user.id)
@@ -80,6 +81,7 @@ def under_maintenance(func):
             logger.info("Maintenance access granted")
 
         return func(update, context, *args, **kwargs)
+
     return wrapped
 
 
@@ -91,6 +93,7 @@ def superuser(func):
     :param func: Pass the wrapped function to the decorator
     :return: The function that was passed to it
     """
+
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         user_id = update.effective_user.id
@@ -109,6 +112,7 @@ def superuser(func):
             logger.info("Superuser access granted")
 
         return func(update, context, *args, **kwargs)
+
     return wrapped
 
 
@@ -120,6 +124,7 @@ def restricted(func):
     :param func: Pass the function that will be decorated
     :return: The wrapped function
     """
+
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         user_id = update.effective_user.id
@@ -337,7 +342,6 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
         context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
 
         reply_keyboard = [['Завершити сканування', 'Повідомити про проблему']]
-        reply_keyboard2 = [['Так', 'Ні']]
 
         query_result = get_db_query_result(barcode)
         photo = retrieve_query_photo(query_result)
@@ -375,11 +379,13 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
             logger.info("The barcode is missing from the database. Asking to add info")
             link = 'https://www.google.com/search?q=' + barcode
 
+            add_missing_keyboard = [[InlineKeyboardButton("Додати до бази даних", callback_data="add$" + barcode)]]
+
             update.message.reply_text(
                 parse_mode='HTML',
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard2, one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Продовжуйте'),
+                reply_markup=InlineKeyboardMarkup(add_missing_keyboard, one_time_keyboard=True,
+                                                  resize_keyboard=True,
+                                                  input_field_placeholder='Продовжуйте'),
                 text='❌ Штрих-код ' + '<b>' + barcode + '</b>' +
                      ' відсутній у моїй базі даних.\n\n' +
                      'Чи бажаєте Ви додати інформацію про цей медикамент?'
@@ -388,6 +394,45 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 quote=True,
                 disable_web_page_preview=True
             )
+
+
+@under_maintenance
+@restricted
+def inline_adding(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+
+    query.answer(text="Розпочинаю процес додавання")
+    context.user_data["query"] = query
+
+    barcode = query.data.split("$")[1]
+    print(barcode)
+
+    reply_keyboard = [['Скасувати додавання']]
+
+    if get_db_query_result(barcode):
+        logger.info("This barcode already exists. Cancelling adding process")
+
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
+        )
+
+        return cancel(update=update, context=context)
+
+    context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
+
+    logger.info("Asking for a name")
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='Добре\.\nСпершу, надішліть назву медикаменту\.'
+             f'\nШтрихкод: *{barcode}*',
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Введіть назву')
+    )
+    return INGREDIENT
 
 
 @under_maintenance
@@ -406,26 +451,16 @@ def start_adding(update: Update, context: CallbackContext) -> int:
 
     reply_keyboard = [['Скасувати додавання']]
 
-    if update.message.text != "Так" and not update.message.photo:
-        logger.info("Photo is missing, asking to scan one")
+    logger.info("Photo is missing, asking to scan one")
 
-        update.message.reply_text(
-            'Добре.\nСпершу, надішліть фото штрих-коду',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Надішліть фото')
-        )
+    update.message.reply_text(
+        'Добре.\nСпершу, надішліть фото штрих-коду',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Надішліть фото')
+    )
 
-        return NAME
-    elif not update.message.photo:
-        logger.info("Photo already scanned, asking for a name")
-        update.message.reply_text(
-            'Добре.\nСпершу, надішліть назву медикаменту',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Введіть назву')
-        )
-        return INGREDIENT
+    return NAME
 
 
 @under_maintenance
@@ -763,6 +798,13 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         collection.insert_one(context.user_data["DRUG_INFO"])
         logger.info("Checked info. Added to DB successfully")
 
+        context.user_data["query"].edit_message_text(
+            text=f"✅ Ви додали інформацію про цей штрих\-код \- *{context.user_data['DRUG_INFO']['code']}*"
+                 "\n\n*Дякуємо\!*",
+            parse_mode="MarkdownV2"
+        )
+        context.user_data.pop("query", None)
+
         update.message.reply_text(
             text='✅ Препарат успішно додано до бази даних',
             reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
@@ -891,11 +933,11 @@ def cancel(update: Update, context: CallbackContext) -> ConversationHandler.END:
     :param context: CallbackContext: Pass information to the callback function
     :return: Conversationhandler.END
     """
-    user = update.message.from_user
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    logger.info("User %s canceled the adding process", user.first_name)
-    update.message.reply_text(
+    logger.info("User %s canceled the adding process")
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
         text='ℹ️ Операцію додавання скасовано',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          one_time_keyboard=True, resize_keyboard=True,
@@ -1617,11 +1659,11 @@ def show_statistics(update: Update, context: CallbackContext) -> int or None:
             update.message.reply_photo(
                 retrieve_admin_photo(entered_id),
                 caption="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
-                f"<b>Додано медикаментів</b>: {documents_quantity}"
-                f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
-                f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
-                f"\n<b>Чи є адміністратором</b>: {is_admin}{admin_info}"
-                f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
+                        f"<b>Додано медикаментів</b>: {documents_quantity}"
+                        f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
+                        f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
+                        f"\n<b>Чи є адміністратором</b>: {is_admin}{admin_info}"
+                        f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                                  one_time_keyboard=True,
@@ -1901,7 +1943,8 @@ def main() -> None:
     instructions = MessageHandler(Filters.regex('^(Інструкції|/help)$'), instructions_handler)
 
     add_handler = ConversationHandler(
-        entry_points=[MessageHandler(Filters.regex('^(Так|Додати новий медикамент|/add)$'), start_adding)],
+        entry_points=[MessageHandler(Filters.regex('^(Додати новий медикамент|/add)$'), start_adding),
+                      CallbackQueryHandler(inline_adding, pattern="^add")],
         states={
             NAME: [
                 MessageHandler(Filters.photo & ~Filters.command & ~Filters.text("Скасувати додавання"), get_name)

@@ -67,7 +67,8 @@ def under_maintenance(func):
             logger.info("Unauthorized maintenance access denied ID: {}".format(user_id))
 
             update.message.reply_text(
-                "❌ *The bot is under maintenance*",
+                "❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
+                "\n\nЗвʼязатись з розробником \- @andylvua",
                 parse_mode="MarkdownV2"
             )
             return

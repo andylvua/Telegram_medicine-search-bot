@@ -52,7 +52,7 @@ REASON, BAN = range(2)
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
-UNDER_MAIUNDER_MAINTENANCE = os.environ.get('UNDER_MAINTENANCE') == "True"
+UNDER_MAINTENANCE = os.environ.get('UNDER_MAINTENANCE') == "True"
 
 
 def under_maintenance(func):
@@ -72,7 +72,8 @@ def under_maintenance(func):
             logger.info("Unauthorized maintenance access denied ID: {}".format(user_id))
 
             update.message.reply_text(
-                "❌ *The bot is under maintenance*",
+                "❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
+                "\n\nЗвʼязатись з розробником \- @andylvua",
                 parse_mode="MarkdownV2"
             )
             return

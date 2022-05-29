@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.7.5 Development
+Version: 2.7.6 Development
 """
 from datetime import datetime
 
@@ -327,7 +327,7 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 
         update.message.reply_text(
             text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
-                 "\nСпробуйте ще раз, або подивіться інструкції до сканування та "
+                 "\n\nСпробуйте ще раз, або подивіться інструкції до сканування за допомогою команди */help* та "
                  "переконайтесь, що робите все правильно\.",
             quote=True,
             parse_mode='MarkdownV2',
@@ -425,12 +425,17 @@ def inline_adding(update: Update, context: CallbackContext) -> int:
 
     context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text='Добре\.\nСпершу, надішліть назву медикаменту\.'
-             f'\nШтрихкод: *{barcode}*',
+        text=f'ℹ️ Ви додаєте інформацію про штрих\-код *{barcode}*',
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
                                          resize_keyboard=True,
                                          input_field_placeholder='Введіть назву')
+    )
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text='Спершу, надішліть назву медикаменту',
+        parse_mode="MarkdownV2",
+        reply_markup=ForceReply(input_field_placeholder="Назва")
     )
     return INGREDIENT
 
@@ -453,12 +458,13 @@ def start_adding(update: Update, context: CallbackContext) -> int:
 
     logger.info("Photo is missing, asking to scan one")
 
-    update.message.reply_text(
-        'Добре.\nСпершу, надішліть фото штрих-коду',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Надішліть фото')
-    )
+    if not update.message.photo:
+        update.message.reply_text(
+            'Добре.\nСпершу, надішліть фото штрих-коду',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                             resize_keyboard=True,
+                                             input_field_placeholder='Надішліть фото')
+        )
 
     return NAME
 
@@ -521,8 +527,8 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
         logger.info("Failed to scan. Asking to retry")
 
         update.message.reply_text(
-            text="*На жаль, сталася помилка\. Мені не вдалось відсканувати штрих\-код ❌ *"
-                 "\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
+            text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
+                 "\n\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
                  "або подивіться інструкції до сканування за допомогою команди */help*",
             quote=True,
             parse_mode='MarkdownV2',
@@ -1345,7 +1351,7 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
                                          input_field_placeholder='Оберіть опцію')
     )
 
-    context.user_data["DRUG_INFO"]["code"] = ''
+    context.user_data.setdefault("DRUG_INFO", {})["code"] = ''
     return ConversationHandler.END
 
 

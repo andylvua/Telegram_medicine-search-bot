@@ -2,6 +2,7 @@
 Author: Andrew Yaroshevych
 Version: 2.6.5 Development
 """
+import os
 from functools import wraps
 
 from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, \
@@ -16,7 +17,7 @@ from email.message import EmailMessage
 import io
 import logging
 import smtplib
-import configparser
+from dotenv import load_dotenv
 
 import requests
 import bs4
@@ -33,10 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-config = configparser.ConfigParser()
-config.read("config.ini")
+load_dotenv()
 
-cluster = MongoClient(config['Database']['cluster'])
+cluster = MongoClient(os.environ.get('cluster'))
 
 db = cluster.TestBotDatabase
 collection = db.TestBotCollection
@@ -48,7 +48,7 @@ SEARCH = 1
 
 MAIN_REPLY_KEYBOARD = [['Сканувати', 'Пошук'], ['Інструкції', 'Налаштування', 'Надіслати відгук']]
 
-UNDER_MAINTENANCE = True
+UNDER_MAINTENANCE = False
 
 
 def under_maintenance(func):
@@ -685,8 +685,8 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
             smtp.starttls()
             smtp.ehlo()
 
-            address = config['Mail']['address']
-            password = config['Mail']['password']
+            address = os.environ.get('email_address')
+            password = os.environ.get('email_password')
 
             smtp.login(address, password)
 
@@ -1051,7 +1051,7 @@ def cancel_search(update: Update, context: CallbackContext) -> ConversationHandl
 
 def main() -> None:
     # noinspection SpellCheckingInspection
-    updater = Updater(config['Telegram']['token'])
+    updater = Updater(os.environ.get('msb_token'))
     dispatcher = updater.dispatcher
 
     start = CommandHandler('start', start_handler)

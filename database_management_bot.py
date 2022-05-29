@@ -18,7 +18,7 @@ import io
 import json
 import logging
 import smtplib
-import configparser
+from dotenv import load_dotenv
 from functools import wraps
 
 from pymongo import MongoClient
@@ -34,10 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-config = configparser.ConfigParser()
-config.read("config.ini")
+load_dotenv()
 
-cluster = MongoClient(config['Database']['cluster'])
+cluster = MongoClient(os.environ.get('cluster'))
 db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 admins_collection = db.Administrators
@@ -53,7 +52,7 @@ REASON, BAN = range(2)
 
 MAIN_REPLY_KEYBOARD = [['Перевірити наявність', 'Додати новий медикамент', 'Інструкції', 'Надіслати відгук']]
 
-UNDER_MAINTENANCE = True
+UNDER_MAINTENANCE = False
 
 
 def under_maintenance(func):
@@ -96,10 +95,10 @@ def superuser(func):
 
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
-        user_id = update.effective_user.id
-        superusers = config.items("Superusers")
+        user_id = str(update.effective_user.id)
+        superusers = os.environ.get('superusers')
 
-        if user_id not in list(int(value) for key, value in superusers):
+        if user_id not in superusers.split(", "):
             logger.info("Unauthorized superuser access denied ID: {}".format(user_id))
 
             update.message.reply_text(
@@ -1430,8 +1429,8 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
             smtp.starttls()
             smtp.ehlo()
 
-            address = config['Mail']['address']
-            password = config['Mail']['password']
+            address = os.environ.get('email_address')
+            password = os.environ.get('email_password')
 
             smtp.login(address, password)
 
@@ -1935,7 +1934,7 @@ def send_plot(update: Update, context: CallbackContext) -> None:
 
 
 def main() -> None:
-    updater = Updater(config['Database']['token'])
+    updater = Updater(os.environ.get('msb_db_token'))
     dispatcher = updater.dispatcher
 
     scan = MessageHandler(Filters.regex('^(Перевірити наявність|/scan|Ще раз)$'), scan_handler)

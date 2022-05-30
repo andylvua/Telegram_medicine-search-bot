@@ -42,7 +42,7 @@ db = cluster.TestBotDatabase
 collection = db.TestBotCollection
 
 # Conversation states
-REVIEW = 1
+FEEDBACK = 1
 REPORT = 1
 SEARCH = 1
 
@@ -179,20 +179,18 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
     update.message.reply_photo(open(pic, 'rb'),
                                caption='📷 *Щоб відсканувати штрихкод* та отримати опис ліків \- надішліть мені фото '
                                        'пакування, де я можу *чітко* побачити штрихкод\.'
-                                       '\n\n▶️ *Почати сканування* у будь\-який момент можна '
-                                       'за допомогою команди */scan*'
-                                       '\n\n✏️ Зверніть увагу, ви можете надсилати одразу декілька фотографій\.'
+                                       '\n\n☝️️ Зверніть увагу, ви можете надсилати *одразу декілька фотографій*\.'
                                        '\n\n❗️ Переконайтесь, що фотографія *не розмита*, а штрихкод розташований '
                                        '*вертикально* або *горизонтально*\. '
                                        '\nЦе мінімізує кількість помилок та дозволить боту працювати коректно\.'
                                        '\n\n🔍 *Скористатися розширеним пошуком* можна за допомогою команди */search* '
-                                       '\nЦя функція дозволяє здійснювати пошук за *назвою* та '
-                                       '*діючою речовиною* медикаменту\.'
-                                       '\n\n ↩️ Відмінити будь\-яку дію можна командою */cancel*'
+                                       '\nЦя функція дозволяє здійснювати пошук за *назвою*, *діючою речовиною*, а '
+                                       'також *штрих\-кодом* медикаменту\.'
+                                       '\n\n ↩️ Відмінити *будь\-яку дію* можна командою */cancel*'
                                        '\n\n ⚙️ За допомогою команди */settings* можна налаштувати функцію *пошуку '
                                        'медикаменту у Google*'
-                                       '\n\n📩 Надіслати нам відгук можна обравши опцію "Надіслати відгук" із головного '
-                                       'меню, або скориставшись командою */review*'
+                                       '\n\n📩 Надіслати нам відгук можна обравши опцію "*Надіслати відгук*" із '
+                                       'головного меню, або скориставшись командою */feedback*'
                                        '\n\n 💬 Ви можете викликати це повідомлення у *будь\-який момент*, '
                                        'надіславши команду */help*',
                                parse_mode='MarkdownV2',
@@ -637,10 +635,10 @@ def google_search_set(update: Update, context: CallbackContext) -> None:
 
 
 @under_maintenance
-def start_review(update: Update, context: CallbackContext) -> int:
+def start_feedback(update: Update, context: CallbackContext) -> int:
     """
-    The start_review function is called when the user sends a message to the bot
-    with /review command. It will ask for review text.
+    The start_feedback function is called when the user sends a message to the bot
+    with /feedback command. It will ask for feedback text.
 
 
     :param update:Update: Access the telegram api
@@ -658,23 +656,23 @@ def start_review(update: Update, context: CallbackContext) -> int:
                                          resize_keyboard=True,
                                          input_field_placeholder='Відгук')
     )
-    return REVIEW
+    return FEEDBACK
 
 
 @under_maintenance
-def send_review(update: Update, context: CallbackContext) -> ConversationHandler.END:
+def send_feedback(update: Update, context: CallbackContext) -> ConversationHandler.END:
     """
-    The send_review function sends a review to the MSB admins.
+    The send_feedback function sends a feedback to the MSB admins.
     It takes in an update and context objects as parameters, and returns ConversationHandler.END.
 
     :param update:Update: Access the telegram api
     :param context:CallbackContext: Access data,
     :return: Conversationhandler.END
     """
-    review_msg = update.message.text
+    feedback_msg = update.message.text
     user = update.message.from_user
 
-    logger.info("User reviewed: %s", review_msg)
+    logger.info("User reviewed: %s", feedback_msg)
 
     context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
@@ -698,7 +696,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
             msg['To'] = address
 
             user_data = f"<br><br><br><b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
-            message = review_msg + user_data
+            message = feedback_msg + user_data
 
             content = \
                 f"""<!DOCTYPE html>
@@ -984,7 +982,7 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    if not list(medicine_by_barcode):
+    if not medicine_by_barcode:
         logger.info("Nothing is found")
 
         update.message.reply_text(
@@ -1065,11 +1063,11 @@ def main() -> None:
     cancel = CommandHandler('cancel', cancel_operation)
     about = MessageHandler(Filters.regex('Про мене'), tell_about)
 
-    review_handler = ConversationHandler(
-        entry_points=[MessageHandler(Filters.regex('^(Надіслати відгук|/review)$'), start_review)],
+    feedback_handler = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex('^(Надіслати відгук|/feedback)$'), start_feedback)],
         states={
-            REVIEW: [
-                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), send_review)
+            FEEDBACK: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), send_feedback)
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_report),
@@ -1093,9 +1091,9 @@ def main() -> None:
         entry_points=[MessageHandler(Filters.regex('^(Пошук|/search)$'), start_search)],
         states={
             SEARCH: [
-                MessageHandler(Filters.text & ~Filters.regex('^(\d{13})$') & ~Filters.command &
+                MessageHandler(Filters.text & ~Filters.regex('^(\d{8,13})$') & ~Filters.command &
                                ~Filters.text("Скасувати"), search_by_name),
-                MessageHandler(Filters.regex('^(\d{13})$') & ~Filters.command & ~Filters.text("Скасувати"),
+                MessageHandler(Filters.regex('^(\d{8,13})$') & ~Filters.command & ~Filters.text("Скасувати"),
                                search_by_barcode)
             ],
         },
@@ -1115,7 +1113,7 @@ def main() -> None:
     dispatcher.add_handler(continue_scan)
     dispatcher.add_handler(decoder)
     dispatcher.add_handler(about)
-    dispatcher.add_handler(review_handler)
+    dispatcher.add_handler(feedback_handler)
     dispatcher.add_handler(report_handler)
     dispatcher.add_handler(cancel)
     dispatcher.add_handler(not_file)

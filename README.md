@@ -7,6 +7,7 @@
 [![pymongo 4.1.1](https://img.shields.io/badge/pymongo-4.1.1-green)](https://pypi.org/project/pymongo/)
 
 ![Development progress](https://img.shields.io/badge/Development-In%20progress-orange)
+![Heroku](https://img.shields.io/static/v1?message=deployed&logo=Heroku&color=32CD32&label=Heroku)
 
 ## Description 
 ### English 🇬🇧

@@ -46,7 +46,7 @@ blacklist = db.Blacklist
 NAME, INGREDIENT, ABOUT, PHOTO, CHECK, INSERT, CHANGE_INFO, REWRITE = range(8)
 CONTACT, ADMIN_PHOTO = range(2)
 REPORT = 1
-REVIEW = 1
+FEEDBACK = 1
 STATISTICS, SEND_FILES = range(2)
 REASON, BAN = range(2)
 
@@ -1024,23 +1024,23 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
     pic = 'resources/How_to_scan.png'
     update.message.reply_photo(
         open(pic, 'rb'),
-        caption='🔍 Щоб перевірити наявність штрих\-коду у базі даних \- надішліть мені фото '
+        caption='🔍 *Щоб перевірити наявність* штрих\-коду у базі даних \- надішліть мені фото '
                 'пакування, де я можу *чітко* побачити штрихкод\.'
-                '\n\n❗️ Аби додати новий медикамент до бази даних, оберіть опцію '
+                '\n\n☝️️ Зверніть увагу, ви можете надсилати *одразу декілька фотографій*\.'
+                '\n\n❗️ Аби *додати* новий медикамент до бази даних, оберіть опцію '
                 '"Додати новий медикамент", або скористайтесь командою */add*'
-                '\n\nТакож, при перевірці наявності *бот сам запропонує* Вам додати відсутній штрих\-код\.'
+                '\n\nТакож, *бот сам запропонує* Вам додати відсутній штрих\-код\.'
                 '\n\n☑️ При додаванні вкажіть назву медикаменту\. *Не використовуйте спеціальних символів* у назві\.'
                 '\n☑️ Далі вкажіть діючу речовину даного препарату\.'
                 '\n☑️ Також додайте короткий опис *українською мовою*\.'
-                '\n☑️ В кінці додайте фото упаковки медикаменту\. Якщо ви не хочете додавати фото, скористайтесь опцією'
-                ' "Пропустити"\.️'
+                '\n☑️ В кінці додайте фото упаковки медикаменту\ або скористайтесь опцією "Пропустити"\.️'
                 '\n\n*Опис має містити:*'
                 '\n*1\.* Основне застосування препарату \(показання до застосування\)'
                 '\n*2\.* Протипоказання, якщо такі існують'
-                '\n\n📩 Надіслати нам відгук можна обравши опцію "Надіслати відгук" із головного меню, '
-                'або скориставшись командою */review*'
-                '\n\n ↩️ Відмінити будь\-яку дію можна командою */cancel*'
-                '\n\n 💬 Ви можете викликати це повідомлення у будь\-який момент, '
+                '\n\n📩 Надіслати нам відгук можна обравши опцію "*Надіслати відгук*" із головного меню, '
+                'або скориставшись командою */feedback*'
+                '\n\n ↩️ Відмінити *будь\-яку дію* можна командою */cancel*'
+                '\n\n 💬 Ви можете викликати це повідомлення у *будь\-який момент*, '
                 'надіславши команду */help*',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(reply_keyboard,
@@ -1380,10 +1380,10 @@ def cancel_default(update: Update, context: CallbackContext) -> None:
 
 
 @under_maintenance
-def start_review(update: Update, context: CallbackContext) -> int:
+def start_feedback(update: Update, context: CallbackContext) -> int:
     """
-    The start_review function is called when the user sends a message to the bot
-    with /review command. It will ask for review text.
+    The start_feedback function is called when the user sends a message to the bot
+    with /feedback command. It will ask for feedback text.
 
 
     :param update: Update: Access the telegram api
@@ -1393,7 +1393,7 @@ def start_review(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
     user = update.message.from_user
-    logger.info("User %s started review. Asking for a description", user.first_name)
+    logger.info("User %s started feedback. Asking for a description", user.first_name)
 
     update.message.reply_text(
         text=f"💌 *Ваш відгук буде надіслано команді розробників*"
@@ -1404,23 +1404,23 @@ def start_review(update: Update, context: CallbackContext) -> int:
                                          resize_keyboard=True,
                                          input_field_placeholder='Відгук')
     )
-    return REVIEW
+    return FEEDBACK
 
 
 @under_maintenance
-def send_review(update: Update, context: CallbackContext) -> ConversationHandler.END:
+def send_feedback(update: Update, context: CallbackContext) -> ConversationHandler.END:
     """
-    The send_review function sends a review to the MSB admins.
+    The send_feedback function sends a feedback to the MSB admins.
     It takes in an update and context objects as parameters, and returns ConversationHandler.END.
 
     :param update: Update: Access the telegram api
     :param context: CallbackContext: Access data,
     :return: Conversationhandler.END
     """
-    review_msg = update.message.text
+    feedback_msg = update.message.text
     user = update.message.from_user
 
-    logger.info("User reviewed: %s", review_msg)
+    logger.info("User reviewed: %s", feedback_msg)
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
@@ -1442,7 +1442,7 @@ def send_review(update: Update, context: CallbackContext) -> ConversationHandler
             msg['To'] = address
 
             user_data = f"<br><br><br><b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
-            message = review_msg + user_data
+            message = feedback_msg + user_data
 
             content = \
                 f"""<!DOCTYPE html>
@@ -2017,11 +2017,11 @@ def main() -> None:
                    MessageHandler(Filters.text("Скасувати"), cancel_report)]
     )
 
-    review_handler = ConversationHandler(
-        entry_points=[MessageHandler(Filters.regex('^(Надіслати відгук|/review)$'), start_review)],
+    feedback_handler = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex('^(Надіслати відгук|/feedback)$'), start_feedback)],
         states={
-            REVIEW: [
-                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), send_review)
+            FEEDBACK: [
+                MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати"), send_feedback)
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel_report),
@@ -2065,7 +2065,7 @@ def main() -> None:
     dispatcher.add_handler(countries_statistics)
     dispatcher.add_handler(register_handler)
     dispatcher.add_handler(report_handler)
-    dispatcher.add_handler(review_handler)
+    dispatcher.add_handler(feedback_handler)
     dispatcher.add_handler(add_handler)
     dispatcher.add_handler(start)
     dispatcher.add_handler(scan)

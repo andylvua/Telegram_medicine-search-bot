@@ -1,31 +1,32 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.6.5 Development
+Version: 2.6.6 Development
 """
 import os
+import io
+import re
+import smtplib
+import logging
 from functools import wraps
 
-from telegram import Update, ReplyKeyboardRemove, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, \
-    ChatAction
-from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
-    ConversationHandler
+from email.message import EmailMessage
 
 from PIL import Image, ImageDraw
 from pyzbar.pyzbar import decode
-from email.message import EmailMessage
 
-import io
-import logging
-import smtplib
-from dotenv import load_dotenv
-
-import requests
 import bs4
-import re
+import requests
+
+from dotenv import load_dotenv
 
 from pymongo import MongoClient
 
 from langdetect import detect
+
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, \
+    ChatAction
+from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
+    ConversationHandler
 
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - medicine_search_bot.py - %(name)s - %(funcName)s() - '
@@ -59,23 +60,25 @@ def under_maintenance(func):
     :param func: Keep the original function name
     :return: The wrapped function
     """
+
     @wraps(func)
     def wrapped(update, context, *args, **kwargs):
         user_id = int(update.effective_user.id)
 
         if user_id != 483571608 and UNDER_MAINTENANCE is True:
-            logger.info("Unauthorized maintenance access denied ID: {}".format(user_id))
+            logger.info("Unauthorized maintenance access denied ID: %s", user_id)
 
             update.message.reply_text(
                 "❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
                 "\n\nЗвʼязатись з розробником \- @andylvua",
-                parse_mode="MarkdownV2"
+                parse_mode="MarkdownV2",
             )
             return
-        else:
-            logger.info("Maintenance access granted")
+
+        logger.info("Maintenance access granted")
 
         return func(update, context, *args, **kwargs)
+
     return wrapped
 
 
@@ -97,14 +100,17 @@ def start_handler(update: Update, context: CallbackContext) -> ConversationHandl
     reply_keyboard = [['Сканувати', 'Інструкції', 'Пошук'], ['Налаштування', 'Про мене', 'Надіслати відгук']]
 
     update.message.reply_text(
-        '🇺🇦 '
-        '*Привіт\! Я бот для пошуку медикаментів\.*'
-        '\nЯ допоможу Вам швидко знайти інформацію про ліки\.'
-        '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- рекомендую подивитись розділ "Інструкції"'
-        '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
+        text='🇺🇦 '
+             '*Привіт\! Я бот для пошуку медикаментів\.*'
+             '\nЯ допоможу Вам швидко знайти інформацію про ліки\.'
+             '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- '
+             'рекомендую подивитись розділ "*Інструкції*"'
+             '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, resize_keyboard=True, input_field_placeholder='Оберіть опцію'
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
         ),
     )
 
@@ -126,10 +132,12 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     reply_keyboard = [['Відмінити сканування']]
 
     update.message.reply_text(
-        'Будь ласка, надішліть мені фото пакування, де я можу *чітко* побачити штрихкод\.',
+        text='Будь ласка, надішліть мені фото пакування, де я можу *чітко* побачити штрихкод\.',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
+            reply_keyboard, one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Надішліть фото',
         ),
     )
 
@@ -151,10 +159,12 @@ def end_scan_handler(update: Update, context: CallbackContext) -> None:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
-        '☑️ Сканування завершено',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію'),
+        text='☑️ Сканування завершено',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
 
@@ -175,29 +185,32 @@ def instructions_handler(update: Update, context: CallbackContext) -> None:
 
     reply_keyboard = [['Зрозуміло!']]
 
-    pic = 'resources/How_to_scan.png'
-    update.message.reply_photo(open(pic, 'rb'),
-                               caption='📷 *Щоб відсканувати штрихкод* та отримати опис ліків \- надішліть мені фото '
-                                       'пакування, де я можу *чітко* побачити штрихкод\.'
-                                       '\n\n☝️️ Зверніть увагу, ви можете надсилати *одразу декілька фотографій*\.'
-                                       '\n\n❗️ Переконайтесь, що фотографія *не розмита*, а штрихкод розташований '
-                                       '*вертикально* або *горизонтально*\. '
-                                       '\nЦе мінімізує кількість помилок та дозволить боту працювати коректно\.'
-                                       '\n\n🔍 *Скористатися розширеним пошуком* можна за допомогою команди */search* '
-                                       '\nЦя функція дозволяє здійснювати пошук за *назвою*, *діючою речовиною*, а '
-                                       'також *штрих\-кодом* медикаменту\.'
-                                       '\n\n ↩️ Відмінити *будь\-яку дію* можна командою */cancel*'
-                                       '\n\n ⚙️ За допомогою команди */settings* можна налаштувати функцію *пошуку '
-                                       'медикаменту у Google*'
-                                       '\n\n📩 Надіслати нам відгук можна обравши опцію "*Надіслати відгук*" із '
-                                       'головного меню, або скориставшись командою */feedback*'
-                                       '\n\n 💬 Ви можете викликати це повідомлення у *будь\-який момент*, '
-                                       'надіславши команду */help*',
-                               parse_mode='MarkdownV2',
-                               reply_markup=ReplyKeyboardMarkup(
-                                   reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
-                                   input_field_placeholder='Оберіть опцію'),
-                               )
+    update.message.reply_photo(
+        open('resources/How_to_scan.png', 'rb'),
+        caption='📷 *Щоб відсканувати штрихкод* та отримати опис ліків \- надішліть мені фото '
+                'пакування, де я можу *чітко* побачити штрихкод\.'
+                '\n\n☝️️ Зверніть увагу, ви можете надсилати *одразу декілька фотографій*\.'
+                '\n\n❗️ Переконайтесь, що фотографія *не розмита*, а штрихкод розташований '
+                '*вертикально* або *горизонтально*\.'
+                '\nЦе мінімізує кількість помилок та дозволить боту працювати коректно\.'
+                '\n\n🔍 *Скористатися розширеним пошуком* можна за допомогою команди */search* '
+                '\nЦя функція дозволяє здійснювати пошук за *назвою*, *діючою речовиною*, а '
+                'також *штрих\-кодом* медикаменту\.'
+                '\n\n ↩️ Відмінити *будь\-яку дію* можна командою */cancel*'
+                '\n\n ⚙️ За допомогою команди */settings* можна налаштувати функцію *пошуку '
+                'медикаменту у Google*'
+                '\n\n📩 Надіслати нам відгук можна обравши опцію "*Надіслати відгук*" із '
+                'головного меню, або скориставшись командою */feedback*'
+                '\n\n 💬 Ви можете викликати це повідомлення у *будь\-який момент*, '
+                'надіславши команду */help*',
+        parse_mode='MarkdownV2',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
+    )
 
 
 @under_maintenance
@@ -214,11 +227,18 @@ def goto_scan(update: Update, context: CallbackContext) -> None:
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
+    reply_keyboard = MAIN_REPLY_KEYBOARD
+
     if update.message.text != 'Ще раз':
         update.message.reply_text(
-            'Це добре😊 Можемо перейти до сканування.',
-            reply_markup=ReplyKeyboardRemove(),
+            text='Гаразд',
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard, one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Надішліть фото',
+            ),
         )
+        return
     return scan_handler(update=update, context=context)
 
 
@@ -253,9 +273,9 @@ def format_query(query_result) -> str or None:
     """
     try:
         logger.info("Retrieving info")
-        str_output = f"<b>Назва</b>: {query_result['name']} " \
-                     f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
-                     f"\n<b>Опис</b>: {query_result['description']} "
+        str_output = f"<b>Назва</b>: {query_result['name']}" \
+                     f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']}" \
+                     f"\n<b>Опис</b>: {query_result['description']}"
         return str_output
     except Exception as e:
         logger.info(e)
@@ -361,15 +381,19 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
 
         reply_keyboard = [['Ще раз', 'Інструкції']]
 
-        update.message.reply_text(text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
-                                       "\n\nСпробуйте ще раз, або подивіться інструкції до сканування та "
-                                       "переконайтесь, що робите все правильно\.",
-                                  quote=True,
-                                  parse_mode='MarkdownV2',
-                                  reply_markup=ReplyKeyboardMarkup(
-                                      reply_keyboard, one_time_keyboard=True, resize_keyboard=True,
-                                      input_field_placeholder='Оберіть опцію'
-                                  )),
+        update.message.reply_text(
+            text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
+                 "\n\nСпробуйте ще раз, або подивіться інструкції до сканування та "
+                 "переконайтесь, що робите все правильно\.",
+            quote=True,
+            parse_mode='MarkdownV2',
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
+        )
     else:
         link = 'https://www.google.com/search?q=' + barcode
 
@@ -384,44 +408,60 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
             update.message.reply_photo(
                 photo,
                 parse_mode='HTML',
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Продовжуйте'),
-                caption='Ось відсканований штрихкод ✅:\n' + '<b>' + barcode + '</b>' + "\n\n" +
-                        format_query(query_result),
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Продовжуйте',
+                ),
+                caption='Ось відсканований штрихкод ✅:\n' + '<b>' + barcode + '</b>' + "\n\n"
+                        + format_query(query_result),
             )
 
         elif query_result:
             update.message.reply_text(
                 parse_mode='HTML',
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Продовжуйте'),
-                text='Ось відсканований штрихкод ✅:\n' + '<b>' + barcode + '</b>' + "\n\n" +
-                     format_query(query_result) + "\n\n⚠️ Фото відсутнє",
-                quote=True
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Продовжуйте',
+                ),
+                text='Ось відсканований штрихкод ✅:\n' + '<b>' + barcode + '</b>' + "\n\n"
+                     + format_query(query_result) + "\n\n⚠️ Фото відсутнє",
+                quote=True,
             )
         else:
             reply_keyboard = [['Завершити сканування']]
 
-            update.message.reply_text(parse_mode='HTML',
-                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                       resize_keyboard=True,
-                                                                       input_field_placeholder='Продовжуйте'),
-                                      text='Штрих-код ' + '<b>' + barcode + '</b>' +
-                                           ' на жаль відсутній у моїй базі даних ❌'
-                                           '\n\nЯкщо ви хочете долучитись до наповнення бази даних - '
-                                           'скористайтесь нашим другим ботом <b>@msb_database_bot</b>',
-                                      quote=True)
+            update.message.reply_text(
+                parse_mode='HTML',
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Продовжуйте',
+                ),
+                text='Штрих-код ' + '<b>' + barcode + '</b>'
+                     + ' на жаль відсутній у моїй базі даних ❌'
+                       '\n\nЯкщо ви хочете долучитись до наповнення бази даних - '
+                       'скористайтесь нашим другим ботом <b>@msb_database_bot</b>',
+                quote=True,
+            )
 
         if context.user_data.setdefault("GOOGLE_SEARCH", "True") == "True":
-            update.message.reply_text(parse_mode='HTML',
-                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                                                       resize_keyboard=True,
-                                                                       input_field_placeholder='Продовжуйте'),
-                                      text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(barcode) +
-                                           ' - (За результатами пошуку ' + f'<a href="{link}"><b>Google</b></a>' + ')',
-                                      disable_web_page_preview=True)
+            update.message.reply_text(
+                parse_mode='HTML',
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Продовжуйте',
+                ),
+                text='<b>' + '\n\nЙмовірно це: ' + '</b>' + get_query_heading(barcode)
+                     + ' - (За результатами пошуку ' + f'<a href="{link}"><b>Google</b></a>' + ')',
+                disable_web_page_preview=True,
+            )
 
         context.user_data["DRUG_CODE"] = barcode
 
@@ -476,7 +516,10 @@ def file_warning(update: Update, context: CallbackContext) -> None:
         'Будь ласка, використовуйте *фотографію*, а не файл\.',
         parse_mode='MarkdownV2',
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, resize_keyboard=True, input_field_placeholder='Надішліть фото'
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Надішліть фото',
         ),
     )
 
@@ -498,9 +541,12 @@ def undefined_input(update: Update, context: CallbackContext) -> None:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
-        'Я вас не розумію 🧐.\nОберіть, будь ласка, одну з доступних опцій',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію'),
+        text='Я вас не розумію 🧐.\nОберіть, будь ласка, одну з доступних опцій',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
 
@@ -520,10 +566,13 @@ def cancel_operation(update: Update, context: CallbackContext) -> None:
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
-        '☑️ Усі операції скасовано',
+        text='☑️ Усі операції скасовано',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію'),
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
 
@@ -542,19 +591,22 @@ def tell_about(update: Update, context: CallbackContext) -> None:
 
     reply_keyboard = [['Зрозуміло!']]
 
-    pic = 'resources/MSB_Logo.png'
-    update.message.reply_photo(open(pic, 'rb'),
-                               'Слава Україні! 🇺🇦\n\n'
-                               '🤖 Я - бот, створений командою студентів зі Львова.\n\n✅ Моє завдання - допомогти '
-                               'волонтерам, що праwюють на '
-                               'пункnах сортування гуманітарної допомоги. Я допоможу Вам знайти інформацію та короткий '
-                               'опис про медичні '
-                               'препарати за допомогою штрих-коду.'
-                               '\n\n🥇 Це дозволить пришвидшити роботу, а також якість сортування медикаментів '
-                               'для допомоги Збройним Силам України 💛💙',
-                               reply_markup=ReplyKeyboardMarkup(
-                                   reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
-                               )
+    update.message.reply_photo(
+        open('resources/MSB_Logo.png', 'rb'),
+        caption='Слава Україні! 🇺🇦\n\n'
+                '🤖 Я - бот, створений командою студентів зі Львова.\n\n✅ Моє завдання - допомогти '
+                'волонтерам, що праwюють на '
+                'пункnах сортування гуманітарної допомоги. Я допоможу Вам знайти інформацію та короткий '
+                'опис про медичні '
+                'препарати за допомогою штрих-коду.'
+                '\n\n🥇 Це дозволить пришвидшити роботу, а також якість сортування медикаментів '
+                'для допомоги Збройним Силам України 💛💙',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+        ),
+    )
 
 
 @under_maintenance
@@ -569,7 +621,6 @@ def settings(update: Update, context: CallbackContext) -> None:
     :param context: CallbackContext: Store data on the bot object’s state
     :return: A message with three inline buttons attached
     """
-    """Sends a message with three inline buttons attached."""
     if context.user_data.setdefault("GOOGLE_SEARCH", "True") == "True":
         keyboard = [
             [
@@ -587,10 +638,12 @@ def settings(update: Update, context: CallbackContext) -> None:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    update.message.reply_text('*⚙️ Налаштування *'
-                              '\n\nВивід результатів пошуку Google при скануванні:  ',
-                              reply_markup=reply_markup,
-                              parse_mode="MarkdownV2")
+    update.message.reply_text(
+        text='*⚙️ Налаштування *'
+             '\n\nВивід результатів пошуку Google при скануванні:  ',
+        reply_markup=reply_markup,
+        parse_mode="MarkdownV2",
+    )
 
 
 @under_maintenance
@@ -604,7 +657,6 @@ def google_search_set(update: Update, context: CallbackContext) -> None:
     :param context:CallbackContext: Store data that is shared between the callback handlers of a single query
     :return: None
     """
-    """Parses the CallbackQuery and updates the message text."""
     query = update.callback_query
 
     query.answer()
@@ -628,10 +680,12 @@ def google_search_set(update: Update, context: CallbackContext) -> None:
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    query.edit_message_text('*⚙️ Налаштування *'
-                            '\n\nВивід результатів пошуку Google при скануванні:  ',
-                            reply_markup=reply_markup,
-                            parse_mode="MarkdownV2")
+    query.edit_message_text(
+        text='*⚙️ Налаштування *'
+             '\n\nВивід результатів пошуку Google при скануванні:  ',
+        reply_markup=reply_markup,
+        parse_mode="MarkdownV2"
+    )
 
 
 @under_maintenance
@@ -648,13 +702,15 @@ def start_feedback(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
     update.message.reply_text(
-        text=f"💌 *Ваш відгук буде надіслано команді розробників*"
+        text="💌 *Ваш відгук буде надіслано команді розробників*"
              "\n\nНапишіть, будь ласка, свій відгук",
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Відгук')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Відгук',
+        ),
     )
     return FEEDBACK
 
@@ -746,9 +802,11 @@ def send_feedback(update: Update, context: CallbackContext) -> ConversationHandl
             text="*Щиро дякуємо* ❤️ "
                  "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
     except Exception as e:
         logger.warning(e)
@@ -756,9 +814,11 @@ def send_feedback(update: Update, context: CallbackContext) -> ConversationHandl
             text="*Упс\.\.\. Щось пішло не так* 😞️"
                  "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота\.",
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
 
     return ConversationHandler.END
@@ -778,12 +838,14 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
 
     update.message.reply_text(
         text="☑️ Відгук скасовано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
-    context.user_data["DRUG_CODE"] = 0
+    context.user_data["DRUG_CODE"] = ''
     return ConversationHandler.END
 
 
@@ -801,9 +863,9 @@ def start_report(update: Update, context: CallbackContext) -> int:
     """
     reply_keyboard = [['Скасувати']]
 
-    drug_code = context.user_data.get("DRUG_CODE", 0)
+    drug_code = context.user_data.get("DRUG_CODE", '')
 
-    if drug_code == 0:
+    if drug_code == '':
         update.message.reply_text(
             text="⚠️️️ Немає про що повідомляти, спершу відскануйте штрих-код"
         )
@@ -816,13 +878,16 @@ def start_report(update: Update, context: CallbackContext) -> int:
         return cancel_report(update=update, context=context)
 
     update.message.reply_text(
-        text=f"❗️️ *Ви повідомляєте про проблему з інформацією про медикамент зі штрих\-кодом __{str(drug_code)}__*"
+        text="❗️️ *Ви повідомляєте про проблему з інформацією про "
+             f"медикамент зі штрих\-кодом __{str(drug_code)}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Опис проблеми')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Опис проблеми',
+        ),
     )
     return REPORT
 
@@ -847,6 +912,7 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     drug_code = context.user_data["DRUG_CODE"]
 
     document = collection.find_one({"code": drug_code})
+
     if "report" in document:
         number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": drug_code},
@@ -856,13 +922,15 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
 
     update.message.reply_text(
         text="✅️ Дякуємо. Ви успішно повідомили про проблему",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
-    context.user_data["DRUG_CODE"] = 0
+    context.user_data["DRUG_CODE"] = ''
     return ConversationHandler.END
 
 
@@ -880,12 +948,14 @@ def start_search(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
     update.message.reply_text(
-        text="Введіть *назву*, *активну речовину*, або *штрих\-код* для пошуку по базі даних",
+        text="Введіть *назву*, *активну речовину*, або *штрих\-код* медикаменту для пошуку по базі даних",
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Опис проблеми')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Опис проблеми',
+        ),
     )
     return SEARCH
 
@@ -917,10 +987,12 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
         update.message.reply_text(
             text="*❌ Нічого не знайдено*",
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
         return ConversationHandler.END
 
@@ -928,7 +1000,7 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
 
     update.message.reply_text(
         text="*Результати пошуку:*",
-        parse_mode="MarkdownV2"
+        parse_mode="MarkdownV2",
     )
 
     medicine_by_name.rewind()
@@ -941,10 +1013,12 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
             update.message.reply_text(
                 text='⚠️ Фото відсутнє\n\n' + str_output,
                 parse_mode="HTML",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Оберіть опцію',
+                ),
             )
         else:
             img = item['photo']
@@ -953,10 +1027,12 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
                 img,
                 caption=str_output,
                 parse_mode="HTML",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Оберіть опцію',
+                ),
             )
 
     medicine_by_name.close()
@@ -987,7 +1063,7 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
 
         update.message.reply_text(
             text="*❌ Нічого не знайдено*",
-            parse_mode="MarkdownV2"
+            parse_mode="MarkdownV2",
         )
         return ConversationHandler.END
 
@@ -995,7 +1071,7 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
 
     update.message.reply_text(
         text="*Результати пошуку:*",
-        parse_mode="MarkdownV2"
+        parse_mode="MarkdownV2",
     )
 
     str_output = f"<b>Назва</b>: {medicine_by_barcode['name']} " \
@@ -1006,10 +1082,12 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
         update.message.reply_text(
             text='⚠️ Фото відсутнє\n\n' + str_output,
             parse_mode="HTML",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
     else:
         img = medicine_by_barcode['photo']
@@ -1018,10 +1096,12 @@ def search_by_barcode(update: Update, context: CallbackContext) -> ConversationH
             img,
             caption=str_output,
             parse_mode="HTML",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
 
     return ConversationHandler.END
@@ -1041,9 +1121,11 @@ def cancel_search(update: Update, context: CallbackContext) -> ConversationHandl
 
     update.message.reply_text(
         text="☑️ Пошук скасовано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return ConversationHandler.END
 

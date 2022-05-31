@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.6.6 Development
+Version: 2.6.7 Development
 """
 import os
 import io
@@ -69,8 +69,8 @@ def under_maintenance(func):
             logger.info("Unauthorized maintenance access denied ID: %s", user_id)
 
             update.message.reply_text(
-                "❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
-                "\n\nЗвʼязатись з розробником \- @andylvua",
+                text="❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
+                     "\n\nЗвʼязатись з розробником \- @andylvua",
                 parse_mode="MarkdownV2",
             )
             return

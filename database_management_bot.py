@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.7.6 Development
+Version: 2.8.6 Development
 """
 import os
 import io
@@ -75,9 +75,9 @@ def under_maintenance(func):
             logger.info("Unauthorized maintenance access denied ID: %s", user_id)
 
             update.message.reply_text(
-                "❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
-                "\n\nЗвʼязатись з розробником \- @andylvua",
-                parse_mode="MarkdownV2"
+                text="❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
+                     "\n\nЗвʼязатись з розробником \- @andylvua",
+                parse_mode="MarkdownV2",
             )
             return
 
@@ -106,9 +106,9 @@ def superuser(func):
             logger.info("Unauthorized superuser access denied ID: %s", user_id)
 
             update.message.reply_text(
-                "❌ *Ви не можете використовувати цю команду, оскільки не "
-                "належите до користувачів із спеціальним доступом*",
-                parse_mode="MarkdownV2"
+                text="❌ *Ви не можете використовувати цю команду, оскільки не "
+                     "належите до користувачів із спеціальним доступом*",
+                parse_mode="MarkdownV2",
             )
             return
 
@@ -137,9 +137,9 @@ def restricted(func):
             blocked_user = blacklist.find_one({"user_id": user_id}, {"_id": 0})
 
             update.message.reply_text(
-                "❌ *Вас заблоковано\.* ID: *{}*".format(user_id) +
-                f"\n\n*Причина*: {blocked_user['reason']} "
-                "\n\nЯкщо Ви вважаєте, що це помилка \- зверніться до адміністратора бота",
+                text="❌ *Вас заблоковано\.* ID: *{}*".format(user_id) +
+                     f"\n\n*Причина*: {blocked_user['reason']} "
+                     "\n\nЯкщо Ви вважаєте, що це помилка \- зверніться до адміністратора бота",
                 parse_mode='MarkdownV2',
             )
             return
@@ -150,12 +150,12 @@ def restricted(func):
             user_name = user.first_name
 
             update.message.reply_text(
-                f"❌ <b>{user_name}</b>, Ви не можете проводити операцій з базою даних."
-                f"\n\nВаш ID <b>{user_id}</b> не зареєстровано як адміністратора"
-                "\n\nАби зареєструватись, виконайте команду <b>/authorize</b>",
+                text=f"❌ <b>{user_name}</b>, Ви не можете проводити операцій з базою даних."
+                     f"\n\nВаш ID <b>{user_id}</b> не зареєстровано як адміністратора"
+                     "\n\nАби зареєструватись, виконайте команду <b>/authorize</b>",
                 parse_mode='HTML',
             )
-            logger.info("Unauthorized access denied for {}. Asking to authorize".format(user_id))
+            logger.info("Unauthorized access denied for %s. Asking to authorize", user_id)
             return
         return func(update, context, *args, **kwargs)
 
@@ -189,15 +189,18 @@ def start_handler(update: Update, context: CallbackContext) -> ConversationHandl
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
     update.message.reply_text(
-        '🇺🇦 '
-        '*Привіт\! Я бот для адміністування бази даних Telegram MSB\.*'
-        '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- рекомендую подивитись розділ "Інструкції"'
-        '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
+        text='🇺🇦 '
+             '*Привіт\! Я бот для адміністування бази даних Telegram MSB\.*'
+             '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- '
+             'рекомендую подивитись розділ "Інструкції"'
+             '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
     return ConversationHandler.END
@@ -218,13 +221,15 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     reply_keyboard = [['Відмінити сканування']]
 
     update.message.reply_text(
-        'Будь ласка, надсилайте мені фото пакувань, де я можу *чітко* побачити штрихкод '
-        'для перевірки наявності\.',
+        text='Будь ласка, надсилайте мені фото пакувань, де я можу *чітко* побачити штрихкод '
+             'для перевірки наявності\.',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Надішліть фото')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Надішліть фото',
+        ),
     )
 
 
@@ -342,10 +347,12 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                  "переконайтесь, що робите все правильно\.",
             quote=True,
             parse_mode='MarkdownV2',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
     else:
         logger.info("Decoded successfully")
@@ -366,10 +373,9 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                caption='✅ Штрих-код ' + '<b>' + barcode + '</b>' +
-                        ' наявний у моїй базі даних:\n\n' +
-                        format_query(query_result),
-                quote=True
+                caption='✅ Штрих-код ' + '<b>' + barcode + '</b>'
+                        + ' наявний у моїй базі даних:\n\n' + format_query(query_result),
+                quote=True,
             )
 
         elif query_result:
@@ -380,11 +386,10 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
                 reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
                                                  resize_keyboard=True,
                                                  input_field_placeholder='Продовжуйте'),
-                text='✅ Штрих-код ' + '<b>' + barcode + '</b>' +
-                     ' наявний у моїй базі даних:\n\n' +
-                     format_query(query_result) +
-                     '\n\n⚠️ Фото відсутнє',
-                quote=True
+                text='✅ Штрих-код ' + '<b>' + barcode + '</b>'
+                     + ' наявний у моїй базі даних:\n\n' + format_query(query_result)
+                     + '\n\n⚠️ Фото відсутнє',
+                quote=True,
             )
         else:
             logger.info("The barcode is missing from the database. Asking to add info")
@@ -394,16 +399,19 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 
             update.message.reply_text(
                 parse_mode='HTML',
-                reply_markup=InlineKeyboardMarkup(add_missing_keyboard, one_time_keyboard=True,
-                                                  resize_keyboard=True,
-                                                  input_field_placeholder='Продовжуйте'),
-                text='❌ Штрих-код ' + '<b>' + barcode + '</b>' +
-                     ' відсутній у моїй базі даних.\n\n' +
-                     'Чи бажаєте Ви додати інформацію про цей медикамент?'
-                     f'\n\nДля зручності, ви можете знайти інформацію про цей медикамент у '
-                     f'<a href="{link}"><b>Google</b></a>',
+                reply_markup=InlineKeyboardMarkup(
+                    add_missing_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Продовжуйте',
+                ),
+                text='❌ Штрих-код ' + '<b>' + barcode + '</b>'
+                     + ' відсутній у моїй базі даних.\n\n'
+                       'Чи бажаєте Ви додати інформацію про цей медикамент?'
+                       '\n\nДля зручності, ви можете знайти інформацію про цей медикамент у '
+                       f'<a href="{link}"><b>Google</b></a>',
                 quote=True,
-                disable_web_page_preview=True
+                disable_web_page_preview=True,
             )
 
 
@@ -448,15 +456,17 @@ def inline_adding(update: Update, context: CallbackContext) -> int:
         chat_id=update.effective_chat.id,
         text=f'ℹ️ Ви додаєте інформацію про штрих\-код *{barcode}*',
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Введіть назву')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Введіть назву',
+        ),
     )
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text='Спершу, надішліть назву медикаменту',
         parse_mode="MarkdownV2",
-        reply_markup=ForceReply(input_field_placeholder="Назва")
+        reply_markup=ForceReply(input_field_placeholder="Назва"),
     )
     return INGREDIENT
 
@@ -480,10 +490,12 @@ def start_adding(update: Update, context: CallbackContext) -> int:
     logger.info("Photo is missing, asking to scan one")
 
     update.message.reply_text(
-        'Добре.\nСпершу, надішліть фото штрих-коду',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Надішліть фото')
+        text='Добре.\nСпершу, надішліть фото штрих-коду',
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Надішліть фото',
+        ),
     )
 
     return NAME
@@ -550,23 +562,23 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
 
         update.message.reply_text(
             text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
-            quote=True
+            quote=True,
         )
 
         return cancel(update=update, context=context)
-    else:
-        context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
-        logger.info("Storing barcode info")
 
-        update.message.reply_text(
-            text="Штрих-код додано успішно ✅",
-            quote=True
-        )
+    context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
+    logger.info("Storing barcode info")
+
+    update.message.reply_text(
+        text="Штрих-код додано успішно ✅",
+        quote=True,
+    )
 
     logger.info("Asking for a name")
     update.message.reply_text(
         text='Надішліть назву медикаменту',
-        reply_markup=ForceReply(input_field_placeholder="Назва")
+        reply_markup=ForceReply(input_field_placeholder="Назва"),
     )
 
     return INGREDIENT
@@ -592,7 +604,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
             text='*Вкажіть, будь ласка, корректну назву*'
                  f'\n\nПоточна назва "{name}" містить тільки цифри',
             parse_mode="MarkdownV2",
-            reply_markup=ForceReply(input_field_placeholder="Повторіть")
+            reply_markup=ForceReply(input_field_placeholder="Повторіть"),
         )
         return INGREDIENT
 
@@ -603,7 +615,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text='Вкажіть, будь ласка, діючу речовину медикаменту',
-        reply_markup=ForceReply(input_field_placeholder="Діюча речовина")
+        reply_markup=ForceReply(input_field_placeholder="Діюча речовина"),
     )
 
     return ABOUT
@@ -631,8 +643,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
             text='*Вкажіть, будь ласка, корректну назву діючої речовини*'
                  f'\n\nПоточна назва діючої речовини "{active_ingredient}" містить тільки цифри',
             parse_mode="MarkdownV2",
-            reply_markup=ForceReply(input_field_placeholder="Повторіть")
-
+            reply_markup=ForceReply(input_field_placeholder="Повторіть"),
         )
         return ABOUT
 
@@ -643,7 +654,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text='Тепер надішліть короткий опис даного препарату',
-        reply_markup=ForceReply(input_field_placeholder="Опис")
+        reply_markup=ForceReply(input_field_placeholder="Опис"),
     )
 
     return PHOTO
@@ -674,8 +685,8 @@ def get_photo(update: Update, context: CallbackContext) -> int:
             reply_keyboard = [['Скасувати додавання']]
 
             update.message.reply_text(
-                text=f'Опис має містити не менше 5 слів. Спробуйте ще раз',
-                reply_markup=ForceReply(input_field_placeholder="Повторіть")
+                text='Опис має містити не менше 5 слів. Спробуйте ще раз',
+                reply_markup=ForceReply(input_field_placeholder="Повторіть"),
             )
             return PHOTO
         if validators.check_description(description) == "Wrong language":
@@ -684,8 +695,8 @@ def get_photo(update: Update, context: CallbackContext) -> int:
             reply_keyboard = [['Скасувати додавання']]
 
             update.message.reply_text(
-                text=f'Опис має бути лише українською мовою. Спробуйте ще раз',
-                reply_markup=ForceReply(input_field_placeholder="Повторіть")
+                text='Опис має бути лише українською мовою. Спробуйте ще раз',
+                reply_markup=ForceReply(input_field_placeholder="Повторіть"),
             )
             return PHOTO
     except Exception as e:
@@ -695,8 +706,8 @@ def get_photo(update: Update, context: CallbackContext) -> int:
         reply_keyboard = [['Скасувати додавання']]
 
         update.message.reply_text(
-            text=f'Мені не вдалося розпізнати мову введеного тексту. Введіть, будь ласка, коректний опис!',
-            reply_markup=ForceReply(input_field_placeholder="Повторіть")
+            text='Мені не вдалося розпізнати мову введеного тексту. Введіть, будь ласка, коректний опис!',
+            reply_markup=ForceReply(input_field_placeholder="Повторіть"),
         )
         return PHOTO
 
@@ -708,9 +719,11 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(
         text='Також, надішліть фото передньої сторони упаковки медикаменту.'
              '\n\n(Не рекомендується) Натисніть "Пропустити", якщо не хочете додавати фото',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder="Надішліть фото")
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder="Надішліть фото",
+        ),
     )
     return CHECK
 
@@ -763,37 +776,43 @@ def check_info(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_photo(
             image_bytes.getvalue(),
-            caption='<b>Введена інформація:</b>\n\n' + output +
-                    '\n\n❓Ви точно бажаєте додати її до бази даних?',
+            caption='<b>Введена інформація:</b>\n\n' + output
+                    + '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
 
     elif update.message.text and drug_info.setdefault("photo", b'') == b'':
         logger.info("Photo skipped")
 
         update.message.reply_text(
-            text='<b>Введена інформація:</b>\n\n' +
-                 '⚠️ Фото відсутнє\n' + output +
-                 '\n\n❓Ви точно бажаєте додати її до бази даних?',
+            text='<b>Введена інформація:</b>\n\n'
+                 '⚠️ Фото відсутнє\n' + output
+                 + '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
     else:
         img = drug_info['photo']
 
         update.message.reply_photo(
             img,
-            caption='<b>Введена інформація:</b>\n\n' + output +
-                    '\n\n❓Ви точно бажаєте додати її до бази даних?',
+            caption='<b>Введена інформація:</b>\n\n' + output
+                    + '\n\n❓Ви точно бажаєте додати її до бази даних?',
             parse_mode='HTML',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup
+            (reply_keyboard,
+             resize_keyboard=True,
+             input_field_placeholder="Оберіть опцію",
+             ),
         )
     return INSERT
 
@@ -826,17 +845,21 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         logger.info("Checked info. Added to DB successfully")
 
         context.user_data["query"].edit_message_text(
-            text=f"✅ Ви додали інформацію про цей штрих\-код \- *{context.user_data['DRUG_INFO']['code']}*"
+            text="✅ Ви додали інформацію про цей штрих\-код \- "
+                 f"*{context.user_data['DRUG_INFO']['code']}*"
                  "\n\n*Дякуємо\!*",
-            parse_mode="MarkdownV2"
+            parse_mode="MarkdownV2",
         )
         context.user_data.pop("query", None)
 
         update.message.reply_text(
             text='✅ Препарат успішно додано до бази даних',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
 
         logger.info("Clearing info")
@@ -849,9 +872,12 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         reply_keyboard_change = [['Назва', 'Діюча речовина', 'Опис']]
         update.message.reply_text(
             text='Гаразд, яке поле ви хочете змінити?',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard_change, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard_change,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
         return CHANGE_INFO
 
@@ -860,9 +886,12 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
 
         update.message.reply_text(
             text='☑️ Гаразд, додавання скасовано',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
 
     return ConversationHandler.END
@@ -888,9 +917,12 @@ def change_info(update: Update, context: CallbackContext) -> int:
         context.user_data["change"] = "name"
         update.message.reply_text(
             text='Добре, надішліть нову назву',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
     if update.message.text == 'Діюча речовина':
         logger.info("Asking for a new active ingredient")
@@ -898,9 +930,12 @@ def change_info(update: Update, context: CallbackContext) -> int:
         context.user_data["change"] = "active_ingredient"
         update.message.reply_text(
             text='Добре, надішліть нову назву діючої речовини',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
     if update.message.text == 'Опис':
         logger.info("Asking for a new description")
@@ -908,9 +943,12 @@ def change_info(update: Update, context: CallbackContext) -> int:
         context.user_data["change"] = "description"
         update.message.reply_text(
             text='Добре, надішліть новий опис',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder="Оберіть опцію")
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder="Оберіть опцію",
+            ),
         )
 
     return REWRITE
@@ -966,9 +1004,12 @@ def cancel(update: Update, context: CallbackContext) -> ConversationHandler.END:
     context.bot.send_message(
         chat_id=update.effective_chat.id,
         text='ℹ️ Операцію додавання скасовано',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True, resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
     return ConversationHandler.END
@@ -989,7 +1030,7 @@ def file_warning(update: Update, context: CallbackContext) -> None:
     logger.info("%s: File warning", user.first_name)
 
     update.message.reply_text(
-        'Будь ласка, використовуйте *фотографію*, а не файл\.',
+        text='Будь ласка, використовуйте *фотографію*, а не файл\.',
         parse_mode='MarkdownV2',
     )
 
@@ -1011,17 +1052,23 @@ def main_keyboard_handler(update: Update, context: CallbackContext) -> None:
 
     if update.message.text not in ["Зрозуміло!", "Ні"]:
         update.message.reply_text(
-            '☑️ Сканування завершено',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            text='☑️ Сканування завершено',
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
     else:
         update.message.reply_text(
-            'Гаразд',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            text='Гаразд',
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
 
 
@@ -1042,9 +1089,8 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
 
     reply_keyboard = [['Зрозуміло!']]
 
-    pic = 'resources/How_to_scan.png'
     update.message.reply_photo(
-        open(pic, 'rb'),
+        open('resources/How_to_scan.png', 'rb'),
         caption='🔍 *Щоб перевірити наявність* штрих\-коду у базі даних \- надішліть мені фото '
                 'пакування, де я можу *чітко* побачити штрихкод\.'
                 '\n\n☝️️ Зверніть увагу, ви можете надсилати *одразу декілька фотографій*\.'
@@ -1064,10 +1110,12 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
                 '\n\n 💬 Ви можете викликати це повідомлення у *будь\-який момент*, '
                 'надіславши команду */help*',
         parse_mode='MarkdownV2',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return ConversationHandler.END
 
@@ -1098,8 +1146,10 @@ def register(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text="☑️ Ви вже пройшли авторизацію. Вас зареєстровано як адміністратора",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,)
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                resize_keyboard=True,
+            ),
         )
         return ConversationHandler.END
 
@@ -1117,7 +1167,8 @@ def register(update: Update, context: CallbackContext) -> int:
              '\n\n↩️ Якщо ви не бажаєте реєструватись, оберіть опцію "Скасувати реєстрацію"'
              '\n\n❕ Зверніть увагу \- не пройшовши авторизацію ви *не зможете* вносити зміни до бази даних',
         parse_mode="MarkdownV2",
-        reply_markup=reply_markup)
+        reply_markup=reply_markup,
+    )
 
     return CONTACT
 
@@ -1136,9 +1187,6 @@ def get_admin_photo(update: Update, context: CallbackContext) -> int:
 
     reply_keyboard = [['Скасувати реєстрацію']]
 
-    user_id = update.effective_user.id
-    user = update.message.from_user
-
     context.user_data["phone_number"] = update.message.contact.phone_number
     logger.info("Storing admin phone number")
 
@@ -1154,10 +1202,13 @@ def get_admin_photo(update: Update, context: CallbackContext) -> int:
              ' Фотографуйте при хорошому освітленні та старайтесь, щоб ваше обличчя було добре видно на фото\.'
              '\n\n❗️ Вам буде заблоковано доступ за використання несправжніх фотографій обличчя\.',
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Надішліть фото'))
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Надішліть фото',
+        ),
+    )
 
     return ADMIN_PHOTO
 
@@ -1198,17 +1249,17 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
         update.message.reply_text(
             text='*На цій фотографії більше одного обличчя\.* '
                  '\n\nНадішліть, будь ласка, коректну фотографію',
-            parse_mode="MarkdownV2"
+            parse_mode="MarkdownV2",
         )
 
         return ADMIN_PHOTO
-    elif face == 'Face not found':
+    if face == 'Face not found':
         logger.info("Face not found")
 
         update.message.reply_text(
             text='*Мені не вдалося знайти обличчя на цій фотографії\.* '
                  '\n\nНадішліть, будь ласка, фотографію, де чітко видко ваше обличчя',
-            parse_mode="MarkdownV2"
+            parse_mode="MarkdownV2",
         )
         return ADMIN_PHOTO
 
@@ -1218,7 +1269,7 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
     context.user_data["ADMIN_INFO"]["registred_on"] = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
 
     post_id = admins_collection.insert_one(context.user_data["ADMIN_INFO"]).inserted_id
-    logger.info("Added new admin successfully. Admin ID: {}".format(user_id))
+    logger.info("Added new admin successfully. Admin ID: %s", user_id)
 
     update.message.reply_photo(
         face,
@@ -1226,9 +1277,11 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
                 f"\n\nВаш ID: <b>{user_id}</b>"
                 f"\nВаш номер телефону: <b>{context.user_data['phone_number']}</b>",
         parse_mode="HTML",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
     return ConversationHandler.END
@@ -1251,10 +1304,12 @@ def cancel_register(update: Update, context: CallbackContext) -> ConversationHan
 
     update.message.reply_text(
         text="☑️ Реєстрацію скасовано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return ConversationHandler.END
 
@@ -1301,10 +1356,12 @@ def start_report(update: Update, context: CallbackContext) -> int:
              f"__{drug_info['code']}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Опис проблеми')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Опис проблеми',
+        ),
     )
     return REPORT
 
@@ -1342,10 +1399,12 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
 
     update.message.reply_text(
         text="✅️ Дякуємо. Ви успішно повідомили про проблему",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return ConversationHandler.END
 
@@ -1366,10 +1425,12 @@ def cancel_report(update: Update, context: CallbackContext) -> ConversationHandl
 
     update.message.reply_text(
         text="☑️ Відгук скасовано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
     context.user_data.setdefault("DRUG_INFO", {})["code"] = ''
@@ -1393,10 +1454,12 @@ def cancel_default(update: Update, context: CallbackContext) -> None:
 
     update.message.reply_text(
         text="ℹ️️ Усі операції скасовано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
 
 
@@ -1417,13 +1480,15 @@ def start_feedback(update: Update, context: CallbackContext) -> int:
     logger.info("User %s started feedback. Asking for a description", user.first_name)
 
     update.message.reply_text(
-        text=f"💌 *Ваш відгук буде надіслано команді розробників*"
+        text="💌 *Ваш відгук буде надіслано команді розробників*"
              "\n\nНапишіть, будь ласка, свій відгук",
         parse_mode="MarkdownV2",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Відгук')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Відгук',
+        ),
     )
     return FEEDBACK
 
@@ -1515,10 +1580,12 @@ def send_feedback(update: Update, context: CallbackContext) -> ConversationHandl
             text="*Щиро дякуємо* ❤️ "
                  "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
     except Exception as e:
         logger.warning("Something went wrong during review")
@@ -1528,10 +1595,12 @@ def send_feedback(update: Update, context: CallbackContext) -> ConversationHandl
             text="*Упс\.\.\. Щось пішло не так* 😞️"
                  "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота\.",
             parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
 
     return ConversationHandler.END
@@ -1554,10 +1623,12 @@ def statistics_for_user(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text="Введіть ID користувача для отримання статистики",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return STATISTICS
 
@@ -1646,22 +1717,26 @@ def show_statistics(update: Update, context: CallbackContext) -> int or None:
 
         update.message.reply_text(
             text=f"Щось пішло не так: \n\n{e}",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
     else:
         if documents_quantity == 0 and not is_admin and not is_banned:
-            logger.info("There's no statistics for {}".format(entered_id))
+            logger.info("There's no statistics for %s", entered_id)
 
             update.message.reply_text(
                 text="ℹ️ Статистика для користувача *{}* відсутня".format(entered_id),
                 parse_mode="MarkdownV2",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Оберіть опцію',
+                ),
             )
             return
 
@@ -1685,31 +1760,35 @@ def show_statistics(update: Update, context: CallbackContext) -> int or None:
 
             update.message.reply_photo(
                 retrieve_admin_photo(entered_id),
-                caption="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
-                        f"<b>Додано медикаментів</b>: {documents_quantity}"
-                        f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
-                        f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
-                        f"\n<b>Чи є адміністратором</b>: {is_admin}{admin_info}"
-                        f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
+                caption="Статистика для користувача <b>{}</b>\n\n️".format(entered_id)
+                        + f"<b>Додано медикаментів</b>: {documents_quantity}"
+                          f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
+                          f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
+                          f"\n<b>Чи є адміністратором</b>: {is_admin}{admin_info}"
+                          f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
                 parse_mode="HTML",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Оберіть опцію',
+                ),
             )
         else:
             update.message.reply_text(
-                text="Статистика для користувача <b>{}</b>\n\n️".format(entered_id) +
-                     f"<b>Додано медикаментів</b>: {documents_quantity}"
-                     f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
-                     f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
-                     f"\n<b>Чи є адміністратором</b>: {is_admin}"
-                     f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
+                text="Статистика для користувача <b>{}</b>\n\n️".format(entered_id)
+                     + f"<b>Додано медикаментів</b>: {documents_quantity}"
+                       f"\n<b>Скарг, поданих на цього користувача</b>: {reports_on_user}"
+                       f"\n<b>Скарг, поданих цим користувачем</b>: {reports_by_user}"
+                       f"\n<b>Чи є адміністратором</b>: {is_admin}"
+                       f"\n<b>Заблоковано</b>: {is_banned}{banned_info}",
                 parse_mode="HTML",
-                reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                                 one_time_keyboard=True,
-                                                 resize_keyboard=True,
-                                                 input_field_placeholder='Оберіть опцію')
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Оберіть опцію',
+                ),
             )
 
     context.user_data["reply_keyboard"] = reply_keyboard
@@ -1744,10 +1823,12 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
         update.message.reply_document(
             document=open('data.json', 'rb'),
             filename=f"Statistics_for_{entered_id}.json",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
         os.remove('data.json')
 
@@ -1764,10 +1845,12 @@ def send_files(update: Update, context: CallbackContext) -> ConversationHandler.
         update.message.reply_document(
             document=open('data.json', 'rb'),
             filename=f"Reports_for_{entered_id}.json",
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             one_time_keyboard=True,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Оберіть опцію')
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
         )
         os.remove('data.json')
 
@@ -1791,10 +1874,12 @@ def cancel_statistics(update: Update, context: CallbackContext) -> ConversationH
 
     update.message.reply_text(
         text="☑️ Отримання статистики завершено",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return ConversationHandler.END
 
@@ -1817,10 +1902,12 @@ def start_ban(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text="Введіть ID користувача для блокування",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return REASON
 
@@ -1844,10 +1931,12 @@ def get_reason(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text="Введіть причину блокування блокування",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return BAN
 
@@ -1874,14 +1963,16 @@ def ban_user(update: Update, context: CallbackContext) -> ConversationHandler.EN
 
     post_id = blacklist.insert_one(post).inserted_id
 
-    logger.info("Banned successfully. ID: {}".format(context.user_data["user_id"]))
+    logger.info("Banned successfully. ID: %s", context.user_data["user_id"])
 
     update.message.reply_text(
         text="✅ Користувача успішно заблоковано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return ConversationHandler.END
 
@@ -1905,10 +1996,12 @@ def cancel_ban(update: Update, context: CallbackContext) -> ConversationHandler.
 
     update.message.reply_text(
         text="☑️ Блокування користувача скасовано",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                         one_time_keyboard=True,
-                                         resize_keyboard=True,
-                                         input_field_placeholder='Оберіть опцію')
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
     )
     return ConversationHandler.END
 
@@ -1949,7 +2042,7 @@ def send_plot(update: Update, context: CallbackContext) -> None:
         img,
         caption="*Статистика по країнах на основі колекції медикаментів*",
         parse_mode="MarkdownV2",
-        reply_markup=InlineKeyboardMarkup(keyboard, resize_keyboard=True)
+        reply_markup=InlineKeyboardMarkup(keyboard, resize_keyboard=True),
     )
 
     loading_message.delete()

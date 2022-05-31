@@ -2,26 +2,29 @@
 Author: Andrew Yaroshevych
 Version: 2.7.6 Development
 """
+import os
+import io
+import json
+import re
+import smtplib
+import logging
+from functools import wraps
+
 from datetime import datetime
+
+from email.message import EmailMessage
+
+from PIL import Image
+from pyzbar.pyzbar import decode
+
+from dotenv import load_dotenv
+
+from pymongo import MongoClient
 
 from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction, InlineKeyboardButton, \
     InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext, \
     CallbackQueryHandler
-
-from PIL import Image
-from pyzbar.pyzbar import decode
-from email.message import EmailMessage
-
-import os
-import io
-import json
-import logging
-import smtplib
-from dotenv import load_dotenv
-from functools import wraps
-
-from pymongo import MongoClient
 
 import validators
 import statistics
@@ -69,7 +72,7 @@ def under_maintenance(func):
         user_id = int(update.effective_user.id)
 
         if user_id != 483571608 and UNDER_MAINTENANCE is True:
-            logger.info("Unauthorized maintenance access denied ID: {}".format(user_id))
+            logger.info("Unauthorized maintenance access denied ID: %s", user_id)
 
             update.message.reply_text(
                 "❌ *Бот на технічному обслуговуванні\. Приносимо вибачення за тимчасові незручності*"
@@ -77,8 +80,8 @@ def under_maintenance(func):
                 parse_mode="MarkdownV2"
             )
             return
-        else:
-            logger.info("Maintenance access granted")
+
+        logger.info("Maintenance access granted")
 
         return func(update, context, *args, **kwargs)
 
@@ -100,7 +103,7 @@ def superuser(func):
         superusers = os.environ.get('superusers')
 
         if user_id not in superusers.split(", "):
-            logger.info("Unauthorized superuser access denied ID: {}".format(user_id))
+            logger.info("Unauthorized superuser access denied ID: %s", user_id)
 
             update.message.reply_text(
                 "❌ *Ви не можете використовувати цю команду, оскільки не "
@@ -108,8 +111,8 @@ def superuser(func):
                 parse_mode="MarkdownV2"
             )
             return
-        else:
-            logger.info("Superuser access granted")
+
+        logger.info("Superuser access granted")
 
         return func(update, context, *args, **kwargs)
 
@@ -129,7 +132,8 @@ def restricted(func):
     def wrapped(update, context, *args, **kwargs):
         user_id = update.effective_user.id
         if blacklist.count_documents({"user_id": user_id}) != 0:
-            logger.info("User banned by ID: {}".format(user_id))
+            logger.info("User banned by ID: %s", user_id)
+
             blocked_user = blacklist.find_one({"user_id": user_id}, {"_id": 0})
 
             update.message.reply_text(
@@ -201,6 +205,13 @@ def start_handler(update: Update, context: CallbackContext) -> ConversationHandl
 
 @under_maintenance
 def scan_handler(update: Update, context: CallbackContext) -> None:
+    """
+    The scan_handler function is used to tell the user they can scan the barcode of a package.
+
+    :param update: Update: Pass the incoming update to the handler
+    :param context: CallbackContext: Pass data between callbacks
+    :return: None
+    """
     user = update.message.from_user
     logger.info("%s: %s", user.first_name, update.message.text)
 
@@ -399,6 +410,16 @@ def retrieve_scan_results(update: Update, context: CallbackContext) -> None:
 @under_maintenance
 @restricted
 def inline_adding(update: Update, context: CallbackContext) -> int:
+    """
+    The inline_adding function is called when the user presses a callback button with
+    the text "Додати до бази даних". It is responsible for asking the user for information
+    about a new drug, and then adding it to the database.
+
+
+    :param update:Update: Access the telegram api
+    :param context:CallbackContext: Send data between handlers
+    :return: :
+    """
     query = update.callback_query
 
     query.answer(text="Розпочинаю процес додавання")
@@ -458,13 +479,12 @@ def start_adding(update: Update, context: CallbackContext) -> int:
 
     logger.info("Photo is missing, asking to scan one")
 
-    if not update.message.photo:
-        update.message.reply_text(
-            'Добре.\nСпершу, надішліть фото штрих-коду',
-            reply_markup=ReplyKeyboardMarkup(reply_keyboard,
-                                             resize_keyboard=True,
-                                             input_field_placeholder='Надішліть фото')
-        )
+    update.message.reply_text(
+        'Добре.\nСпершу, надішліть фото штрих-коду',
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard,
+                                         resize_keyboard=True,
+                                         input_field_placeholder='Надішліть фото')
+    )
 
     return NAME
 
@@ -483,58 +503,65 @@ def get_name(update: Update, context: CallbackContext) -> int or None:
     :param context: CallbackContext: Store data in between calls
     :return: Ingredient state of conversation or None
     """
-    user = update.message.from_user
-    reply_keyboard = [['Скасувати додавання']]
-
     if update.message.photo:
         id_img = update.message.photo[-1].file_id
+        photo = context.bot.getFile(id_img)
+        image_bytes = io.BytesIO()
+        photo.download(out=image_bytes)
+
+        logger.info("Storing photo")
+
+        try:
+            logger.info("Trying to decode")
+
+            result = decode(Image.open(image_bytes))
+            barcode = result[0].data.decode("utf-8")
+
+            logger.info("Decoded successfully")
+        except IndexError as e:
+            logger.info("Failed to scan. Asking to retry")
+
+            update.message.reply_text(
+                text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
+                     "\n\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
+                     "або подивіться інструкції до сканування за допомогою команди */help*"
+                     "\n\n*Якщо штрих\-код все одно не сканується \- ви можете ввести його вручну*",
+                quote=True,
+                parse_mode='MarkdownV2',
+            )
+
+            return NAME
+    elif update.message.text:
+        barcode = update.message.text
+        if not re.match('^\d{8,13}$', barcode):
+            update.message.reply_text(
+                text="⚠️ *Штрих\-код має містити від 8 до 13 цифр*"
+                     "\n\nСпробуйте ще раз",
+                quote=True,
+                parse_mode='MarkdownV2',
+            )
+
+            return NAME
     else:
         return
 
-    photo = context.bot.getFile(id_img)
-    image_bytes = io.BytesIO()
-    photo.download(out=image_bytes)
-
-    logger.info("Storing photo")
-
-    try:
-        logger.info("Trying to decode")
-
-        result = decode(Image.open(image_bytes))
-        barcode = result[0].data.decode("utf-8")
-
-        logger.info("Decoded successfully")
-
-        if get_db_query_result(barcode):
-            logger.info("This barcode already exists. Cancelling adding process")
-
-            update.message.reply_text(
-                text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
-                quote=True
-            )
-
-            return cancel(update=update, context=context)
-        else:
-            context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
-            logger.info("Storing barcode info")
-
-            update.message.reply_text(
-                text="Штрих-код відскановано успішно ✅",
-                quote=True
-            )
-
-    except IndexError as e:
-        logger.info("Failed to scan. Asking to retry")
+    if get_db_query_result(barcode):
+        logger.info("This barcode already exists. Cancelling adding process")
 
         update.message.reply_text(
-            text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
-                 "\n\nПереконайтесь, що робите все правильно та надішліть фото ще раз, "
-                 "або подивіться інструкції до сканування за допомогою команди */help*",
-            quote=True,
-            parse_mode='MarkdownV2',
-        ),
+            text="⚠️ Медикамент з таким штрих-кодом вже присутній у базі даних.",
+            quote=True
+        )
 
-        return start_adding(update=update, context=context)
+        return cancel(update=update, context=context)
+    else:
+        context.user_data.setdefault("DRUG_INFO", {})["code"] = barcode
+        logger.info("Storing barcode info")
+
+        update.message.reply_text(
+            text="Штрих-код додано успішно ✅",
+            quote=True
+        )
 
     logger.info("Asking for a name")
     update.message.reply_text(
@@ -556,9 +583,6 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
     :return: About state of conversation
     """
     logger.info("Entered name of the drug: %s", update.message.text)
-
-    user = update.message.from_user
-    reply_keyboard = [['Скасувати додавання']]
 
     name = update.message.text
     if validators.check_name(name) is None:
@@ -598,9 +622,6 @@ def get_about(update: Update, context: CallbackContext) -> int:
     :return: Photo state of conversation
     """
     logger.info("Entered active ingredient of the drug: %s", update.message.text)
-
-    user = update.message.from_user
-    reply_keyboard = [['Скасувати додавання']]
 
     active_ingredient = update.message.text
     if validators.check_active_ingredient(active_ingredient) is None:
@@ -1942,7 +1963,6 @@ def main() -> None:
     start = CommandHandler('start', start_handler)
     cancel_echo = CommandHandler('cancel', cancel_default)
     decoder = MessageHandler(Filters.photo, retrieve_scan_results)
-    decoder_str = MessageHandler(Filters.regex('^\d{13}$'), retrieve_scan_results)
     not_file = MessageHandler(Filters.attachment, file_warning)
     end_scan = MessageHandler(Filters.regex('^(Завершити сканування|Відмінити сканування|Зрозуміло!|Ні)$'),
                               main_keyboard_handler)
@@ -1953,7 +1973,9 @@ def main() -> None:
                       CallbackQueryHandler(inline_adding, pattern="^add")],
         states={
             NAME: [
-                MessageHandler(Filters.photo & ~Filters.command & ~Filters.text("Скасувати додавання"), get_name)
+                MessageHandler(Filters.photo & ~Filters.command & ~Filters.text("Скасувати додавання"), get_name),
+                MessageHandler(Filters.text & ~Filters.command
+                               & ~Filters.text("Скасувати додавання"), get_name)
             ],
             INGREDIENT: [
                 MessageHandler(Filters.text & ~Filters.command & ~Filters.text("Скасувати додавання"),

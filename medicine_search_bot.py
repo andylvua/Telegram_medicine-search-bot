@@ -384,7 +384,9 @@ def retrieve_results(update: Update, context: CallbackContext) -> None:
         update.message.reply_text(
             text="⚠️ *На жаль, сталася помилка\. Мені не вдалося відсканувати штрих\-код*"
                  "\n\nСпробуйте ще раз, або подивіться інструкції до сканування та "
-                 "переконайтесь, що робите все правильно\.",
+                 "переконайтесь, що робите все правильно\."
+                 "\n\n*Якщо штрих\-код все одно не сканується \- ви можете скористатися командою /search та "
+                 "ввести його вручну*",
             quote=True,
             parse_mode='MarkdownV2',
             reply_markup=ReplyKeyboardMarkup(

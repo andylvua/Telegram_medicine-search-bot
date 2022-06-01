@@ -1134,6 +1134,9 @@ def cancel_search(update: Update, context: CallbackContext) -> ConversationHandl
 
 def main() -> None:
     # noinspection SpellCheckingInspection
+    token = os.environ.get('msb_token')
+    # port = int(os.environ.get('PORT', '8443'))
+
     updater = Updater(os.environ.get('msb_token'))
     dispatcher = updater.dispatcher
 
@@ -1203,6 +1206,10 @@ def main() -> None:
     dispatcher.add_handler(not_file)
 
     updater.start_polling()
+    # updater.start_webhook(listen="0.0.0.0",
+    #                       port=port,
+    #                       url_path=token,
+    #                       webhook_url="https://telegram-medicine-search-bot.herokuapp.com/" + token)
     updater.idle()
 
 

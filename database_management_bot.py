@@ -2049,7 +2049,10 @@ def send_plot(update: Update, context: CallbackContext) -> None:
 
 
 def main() -> None:
-    updater = Updater(os.environ.get('msb_db_token'))
+    token = os.environ.get('msb_db_token')
+    # port = int(os.environ.get('PORT', '8443'))
+
+    updater = Updater(token)
     dispatcher = updater.dispatcher
 
     scan = MessageHandler(Filters.regex('^(Перевірити наявність|/scan|Ще раз)$'), scan_handler)
@@ -2192,6 +2195,10 @@ def main() -> None:
     dispatcher.add_handler(ban)
 
     updater.start_polling()
+    # updater.start_webhook(listen="0.0.0.0",
+    #                       port=port,
+    #                       url_path=token,
+    #                       webhook_url="https://telegram-medicine-search-bot.herokuapp.com/" + token)
     updater.idle()
 
 

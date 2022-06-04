@@ -276,6 +276,11 @@ def format_query(query_result) -> str or None:
         str_output = f"<b>Назва</b>: {query_result['name']}" \
                      f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']}" \
                      f"\n<b>Опис</b>: {query_result['description']}"
+
+        if "report" in query_result:
+            str_output = "<b>❗️️️ На цю інформацію було подано скарги, які ще не було розглянуто модераторами. " \
+                         "Будьте пильні! ❗</b>\n\n" + str_output
+
         return str_output
     except Exception as e:
         logger.info(e)

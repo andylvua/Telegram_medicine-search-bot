@@ -969,19 +969,68 @@ def rewrite(update: Update, context: CallbackContext) -> check_info:
     :return: The check_info function
     """
     if context.user_data["change"] == "name":
-        context.user_data["DRUG_INFO"]["name"] = update.message.text
+        new_name = update.message.text
+
+        if validators.check_name(new_name) is None:
+            logger.info("Name is not correct, asking to retry")
+
+            update.message.reply_text(
+                text='*Вкажіть, будь ласка, корректну назву*'
+                     f'\n\nПоточна назва "{new_name}" містить тільки цифри',
+                parse_mode="MarkdownV2",
+                reply_markup=ForceReply(input_field_placeholder="Повторіть"),
+            )
+            return REWRITE
+
+        context.user_data["DRUG_INFO"]["name"] = new_name
 
         logger.info("Changed name succsessfully")
 
         return check_info(update=update, context=context)
     if context.user_data["change"] == "active_ingredient":
-        context.user_data["DRUG_INFO"]["active_ingredient"] = update.message.text
+        new_active_ingredient = update.message.text
+
+        if validators.check_active_ingredient(new_active_ingredient) is None:
+            logger.info("Active ingredient is not correct, asking to retry")
+
+            update.message.reply_text(
+                text='*Вкажіть, будь ласка, корректну назву діючої речовини*'
+                     f'\n\nПоточна назва діючої речовини "{new_active_ingredient}" містить тільки цифри',
+                parse_mode="MarkdownV2",
+                reply_markup=ForceReply(input_field_placeholder="Повторіть"),
+            )
+            return REWRITE
+
+        context.user_data["DRUG_INFO"]["active_ingredient"] = new_active_ingredient
 
         logger.info("Changed active ingredient succsessfully")
 
         return check_info(update=update, context=context)
     if context.user_data["change"] == "description":
-        context.user_data["DRUG_INFO"]["description"] = update.message.text
+        new_description = update.message.text
+
+        if validators.check_description(new_description) == "Too few words":
+            logger.info("Description is not correct, asking to retry")
+
+            reply_keyboard = [['Скасувати додавання']]
+
+            update.message.reply_text(
+                text='Опис має містити не менше 5 слів. Спробуйте ще раз',
+                reply_markup=ForceReply(input_field_placeholder="Повторіть"),
+            )
+            return REWRITE
+        if validators.check_description(new_description) == "Wrong language":
+            logger.info("Description is not correct, asking to retry")
+
+            reply_keyboard = [['Скасувати додавання']]
+
+            update.message.reply_text(
+                text='Опис має бути лише українською мовою. Спробуйте ще раз',
+                reply_markup=ForceReply(input_field_placeholder="Повторіть"),
+            )
+            return REWRITE
+
+        context.user_data["DRUG_INFO"]["description"] = new_description
 
         logger.info("Changed description succsessfully")
 

@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from PIL import Image
 
 
 def find_faces(bytes_image: bytes) -> str or bytes:
@@ -34,10 +33,3 @@ def find_faces(bytes_image: bytes) -> str or bytes:
             face = cv2_image[y:y + h + 5, x:x + w + 5]
             output_bytes = cv2.imencode('.jpg', face)[1].tobytes()
             return output_bytes
-
-
-# with open("img.jpg", "rb") as image:
-#     image_bytes = image.read()
-#
-# image = Image.open((find_faces(image_bytes)))
-# image.show()

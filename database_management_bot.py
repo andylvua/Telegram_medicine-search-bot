@@ -844,13 +844,14 @@ def insert_to_db(update: Update, context: CallbackContext) -> int or Conversatio
         collection.insert_one(context.user_data["DRUG_INFO"])
         logger.info("Checked info. Added to DB successfully")
 
-        context.user_data["query"].edit_message_text(
-            text="✅ Ви додали інформацію про цей штрих\-код \- "
-                 f"*{context.user_data['DRUG_INFO']['code']}*"
-                 "\n\n*Дякуємо\!*",
-            parse_mode="MarkdownV2",
-        )
-        context.user_data.pop("query", None)
+        if "query" in context.user_data:
+            context.user_data["query"].edit_message_text(
+                text="✅ Ви додали інформацію про цей штрих\-код \- "
+                     f"*{context.user_data['DRUG_INFO']['code']}*"
+                     "\n\n*Дякуємо\!*",
+                parse_mode="MarkdownV2",
+            )
+            context.user_data.pop("query", None)
 
         update.message.reply_text(
             text='✅ Препарат успішно додано до бази даних',

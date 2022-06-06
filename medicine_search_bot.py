@@ -955,7 +955,7 @@ def start_search(update: Update, context: CallbackContext) -> int:
     reply_keyboard = [['Скасувати']]
 
     update.message.reply_text(
-        text="Введіть *назву*, *активну речовину*, або *штрих\-код* медикаменту для пошуку по базі даних",
+        text="Введіть *назву*, *діючу речовину*, або *штрих\-код* медикаменту для пошуку по базі даних",
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard,

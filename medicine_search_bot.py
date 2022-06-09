@@ -1142,7 +1142,7 @@ def main() -> None:
     token = os.environ.get('msb_token')
     # port = int(os.environ.get('PORT', '8443'))
 
-    updater = Updater(os.environ.get('msb_token'))
+    updater = Updater(token)
     dispatcher = updater.dispatcher
 
     start = CommandHandler('start', start_handler)

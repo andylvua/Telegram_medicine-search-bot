@@ -26,9 +26,9 @@ from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, Ch
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext, \
     CallbackQueryHandler
 
-import validators
-import statistics
-import face_recognition as faces
+from modules.face_recognition import find_faces
+from modules import validators, statistics
+
 
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - database_management_bot.py - %(name)s - %(funcName)s() - '
@@ -1291,7 +1291,7 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
     else:
         return
 
-    face = faces.find_faces(image_bytes.getvalue())
+    face = find_faces(image_bytes.getvalue())
 
     if face == 'Too many faces':
         logger.info("Too many faces")

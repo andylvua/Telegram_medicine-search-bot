@@ -136,7 +136,8 @@ def restricted(func):
 
             blocked_user = blacklist.find_one({"user_id": user_id}, {"_id": 0})
 
-            update.message.reply_text(
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
                 text="❌ *Вас заблоковано\.* ID: *{}*".format(user_id) +
                      f"\n\n*Причина*: {blocked_user['reason']} "
                      "\n\nЯкщо Ви вважаєте, що це помилка \- зверніться до адміністратора бота",
@@ -146,11 +147,9 @@ def restricted(func):
         if admins_collection.count_documents({"user_id": user_id}) != 0:
             logger.info("Admin is already registered. Access granted")
         else:
-            user = update.message.from_user
-            user_name = user.first_name
-
-            update.message.reply_text(
-                text=f"❌ <b>{user_name}</b>, Ви не можете проводити операцій з базою даних."
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"❌ <b>Ви не можете проводити операцій з базою даних</b>"
                      f"\n\nВаш ID <b>{user_id}</b> не зареєстровано як адміністратора"
                      "\n\nАби зареєструватись, виконайте команду <b>/authorize</b>",
                 parse_mode='HTML',

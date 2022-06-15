@@ -1,4 +1,4 @@
-import json
+# import json
 
 import bs4
 import regex
@@ -62,7 +62,10 @@ def find_info(query_string: str) -> dict or None:
     try:
         search_result = search.find("div", {"id": "sku_0"}).find("a")
     except AttributeError:
-        search_result = search.find("div", {"class": "carousel-item col carousel-simple-item"}).find("a")
+        try:
+            search_result = search.find("div", {"class": "carousel-item col carousel-simple-item"}).find("a")
+        except AttributeError:
+            return None
 
     medicine_name = search_result["title"]
     medicine_page_link = 'https://tabletki.ua' + search_result["href"]
@@ -138,31 +141,31 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
         print()
 
 
-with open('names.txt') as file:
-    names_lines = file.readlines()
-
-info_list = list()
-
-print_progress_bar(0, len(names_lines), prefix='Progress:', suffix='Complete', length=50)
-
-found = 0
-for i, name in enumerate(names_lines):
-    data = find_info(name)
-
-    if data and data["active_ingredient"]:
-        medicine_info = {
-            "Назва": data["name"],
-            "Діюча речовина": data["active_ingredient"],
-            "Фармгрупа": data["pharmgroup"],
-            "Показання": data["indication"],
-            "Протипоказання": data["contrandication"]
-        }
-        found += 1
-        info_list.append(medicine_info)
-
-    print_progress_bar(i + 1, len(names_lines), prefix='Progress:', suffix='Complete', length=50)
-
-with open("medicine_info.json", "w", encoding='utf-8') as final:
-    json.dump(info_list, final, sort_keys=False, ensure_ascii=False, indent=4)
-
-print(f"Done. Found {found} out of {len(names_lines)} medicines")
+# with open('names.txt') as file:
+#     names_lines = file.readlines()
+#
+# info_list = list()
+#
+# print_progress_bar(0, len(names_lines), prefix='Progress:', suffix='Complete', length=50)
+#
+# found = 0
+# for i, name in enumerate(names_lines):
+#     data = find_info(name)
+#
+#     if data and data["active_ingredient"]:
+#         medicine_info = {
+#             "Назва": data["name"],
+#             "Діюча речовина": data["active_ingredient"],
+#             "Фармгрупа": data["pharmgroup"],
+#             "Показання": data["indication"],
+#             "Протипоказання": data["contrandication"]
+#         }
+#         found += 1
+#         info_list.append(medicine_info)
+#
+#     print_progress_bar(i + 1, len(names_lines), prefix='Progress:', suffix='Complete', length=50)
+#
+# with open("medicine_info.json", "w", encoding='utf-8') as final:
+#     json.dump(info_list, final, sort_keys=False, ensure_ascii=False, indent=4)
+#
+# print(f"Done. Found {found} out of {len(names_lines)} medicines")

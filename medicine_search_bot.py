@@ -28,6 +28,8 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKe
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
     ConversationHandler
 
+from modules.medicine_parser import find_info
+
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - medicine_search_bot.py - %(name)s - %(funcName)s() - '
            '%(levelname)s - %(message)s',
@@ -991,16 +993,38 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
     if not list(medicine_by_name):
         logger.info("Nothing is found")
 
-        update.message.reply_text(
-            text="*❌ Нічого не знайдено*",
-            parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(
-                reply_keyboard,
-                one_time_keyboard=True,
-                resize_keyboard=True,
-                input_field_placeholder='Оберіть опцію',
-            ),
-        )
+        data = find_info(query)
+
+        if data:
+            url = f'https://tabletki.ua/uk/search/{query}/'
+
+            update.message.reply_text(
+                text=f"ℹ️ <b>Медикамент {query} відсутній у базі даних MSB</b>"
+                     f"\n\n<b><i>[Beta]</i></b> Ось інформація з ресурсу <a href={url}><b>tabletki.ua</b></a>\n\n"
+                     f"<b>Назва:</b> {data['name']}"
+                     f"<b>Діюча речовина:</b> {data['active_ingredient']}"
+                     f"<b>Фармгрупа:</b> {data['pharmgroup']}"
+                     f"<b>Показання:</b> {data['indication']}"
+                     f"<b>Протипоказання:</b> {data['contrandication']}",
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Оберіть опцію',
+                ),
+            )
+        else:
+            update.message.reply_text(
+                text=f"❌ *Нічого не знайдено*",
+                parse_mode="MarkdownV2",
+                reply_markup=ReplyKeyboardMarkup(
+                    reply_keyboard,
+                    one_time_keyboard=True,
+                    resize_keyboard=True,
+                    input_field_placeholder='Оберіть опцію',
+                ),
+            )
         return ConversationHandler.END
 
     logger.info("Found something")

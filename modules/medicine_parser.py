@@ -59,7 +59,10 @@ def find_info(query_string: str) -> dict or None:
     if availability_check:
         return
 
-    search_result = search.find("div", {"id": "sku_0"}).find("a")
+    try:
+        search_result = search.find("div", {"id": "sku_0"}).find("a")
+    except AttributeError:
+        search_result = search.find("div", {"class": "carousel-item col carousel-simple-item"}).find("a")
 
     medicine_name = search_result["title"]
     medicine_page_link = 'https://tabletki.ua' + search_result["href"]

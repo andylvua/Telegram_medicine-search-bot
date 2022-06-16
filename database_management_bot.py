@@ -1292,16 +1292,16 @@ def add_admin(update: Update, context: CallbackContext) -> ConversationHandler.E
 
     face = find_faces(image_bytes.getvalue())
 
-    if face == 'Too many faces':
-        logger.info("Too many faces")
-
-        update.message.reply_text(
-            text='*На цій фотографії більше одного обличчя\.* '
-                 '\n\nНадішліть, будь ласка, коректну фотографію',
-            parse_mode="MarkdownV2",
-        )
-
-        return ADMIN_PHOTO
+    # if face == 'Too many faces':
+    #     logger.info("Too many faces")
+    #
+    #     update.message.reply_text(
+    #         text='*На цій фотографії більше одного обличчя\.* '
+    #              '\n\nНадішліть, будь ласка, коректну фотографію',
+    #         parse_mode="MarkdownV2",
+    #     )
+    #
+    #     return ADMIN_PHOTO
     if face == 'Face not found':
         logger.info("Face not found")
 

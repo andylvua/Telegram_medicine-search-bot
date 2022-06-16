@@ -24,9 +24,9 @@ def find_faces(bytes_image: bytes) -> str or bytes:
         minSize=(30, 30)
     )
 
-    if len(faces) > 1:
-        return 'Too many faces'
-    elif len(faces) == 0:
+    # if len(faces) > 1:
+    #     return 'Too many faces'
+    if len(faces) == 0:
         return 'Face not found'
     else:
         for (x, y, w, h) in faces:

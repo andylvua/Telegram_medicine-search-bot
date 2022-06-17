@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.6.7 Development
+Version: 2.7.7 Development
 """
 import os
 import io
@@ -28,7 +28,7 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKe
 from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
     ConversationHandler
 
-from modules.medicine_parser import find_info
+from modules.medicine_parser import find_info_tabletki_ua, find_info_drug_control
 
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d - medicine_search_bot.py - %(name)s - %(funcName)s() - '
@@ -993,19 +993,21 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
     if not list(medicine_by_name):
         logger.info("Nothing is found")
 
-        data = find_info(query)
+        data = find_info_tabletki_ua(query)
 
         if data:
-            url = f'https://tabletki.ua/uk/search/{query}/'
+            url = data["link"]
+
+            print(url)
 
             update.message.reply_text(
                 text=f"ℹ️ <b>Медикамент {query} відсутній у базі даних MSB</b>"
-                     f"\n\n<b><i>[Beta]</i></b> Ось інформація з ресурсу <a href={url}><b>tabletki.ua</b></a>\n\n"
-                     f"<b>Назва:</b> {data['name']}"
-                     f"<b>Діюча речовина:</b> {data['active_ingredient']}"
-                     f"<b>Фармгрупа:</b> {data['pharmgroup']}"
-                     f"<b>Показання:</b> {data['indication']}"
-                     f"<b>Протипоказання:</b> {data['contrandication']}",
+                     f"\n\n<b><i>[Beta]</i></b> Ось інформація з ресурсу <a href=><b>tabletki.ua</b></a>"
+                     f"\n\n<b>Назва:</b> {data['name']}"
+                     f"\n<b>Діюча речовина:</b> {data['active_ingredient']}"
+                     f"\n<b>Фармгрупа:</b> {data['pharmgroup']}"
+                     f"\n<b>Показання:</b> {data['indication']}"
+                     f"\n<b>Протипоказання:</b> {data['contrandication']}",
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardMarkup(
                     reply_keyboard,
@@ -1014,10 +1016,22 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
                     input_field_placeholder='Оберіть опцію',
                 ),
             )
-        else:
+            return ConversationHandler.END
+
+        data = find_info_drug_control(query)
+
+        if data:
+            url = data["link"]
+
             update.message.reply_text(
-                text=f"❌ *Нічого не знайдено*",
-                parse_mode="MarkdownV2",
+                text=f"ℹ️ <b>Медикамент {query} відсутній у базі даних MSB</b>"
+                     f"\n\n<b><i>[Beta]</i></b> Ось інформація з ресурсу <a href=><b>likicontrol.com.ua/</b></a>"
+                     f"\n\n<b>Назва:</b> {data['name']}"
+                     f"\n<b>Діюча речовина:</b> {data['active_ingredient']}"
+                     f"\n<b>Фармгрупа:</b> {data['pharmgroup']}"
+                     f"\n<b>Показання:</b> {data['indication']}"
+                     f"\n<b>Протипоказання:</b> {data['contrandication']}",
+                parse_mode="HTML",
                 reply_markup=ReplyKeyboardMarkup(
                     reply_keyboard,
                     one_time_keyboard=True,
@@ -1025,6 +1039,18 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
                     input_field_placeholder='Оберіть опцію',
                 ),
             )
+            return ConversationHandler.END
+
+        update.message.reply_text(
+            text=f"❌ *Нічого не знайдено*",
+            parse_mode="MarkdownV2",
+            reply_markup=ReplyKeyboardMarkup(
+                reply_keyboard,
+                one_time_keyboard=True,
+                resize_keyboard=True,
+                input_field_placeholder='Оберіть опцію',
+            ),
+        )
         return ConversationHandler.END
 
     logger.info("Found something")

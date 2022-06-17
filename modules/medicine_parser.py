@@ -1,4 +1,5 @@
 # import json
+import re
 
 import bs4
 import regex
@@ -33,7 +34,7 @@ def translate(query_string: str) -> str:
     return translator.translate(query_string, dest='uk').text
 
 
-def find_info(query_string: str) -> dict or None:
+def find_info_tabletki_ua(query_string: str) -> dict or None:
     """
     Takes a string as an argument parses website and returns a dictionary with the following keys:
         name - medicine name
@@ -47,7 +48,7 @@ def find_info(query_string: str) -> dict or None:
     if not is_cyrillic(query_string):
         query_string = translate(query_string)
 
-    url = f'https://tabletki.ua/uk/search/{query_string}/'
+    url = f'https://tabletki.ua/uk/search/' + query_string
 
     scraper = cloudscraper.create_scraper()
     request_result = scraper.get(url)
@@ -65,7 +66,7 @@ def find_info(query_string: str) -> dict or None:
         try:
             search_result = search.find("div", {"class": "carousel-item col carousel-simple-item"}).find("a")
         except AttributeError:
-            return None
+            return
 
     medicine_name = search_result["title"]
     medicine_page_link = 'https://tabletki.ua' + search_result["href"]
@@ -92,9 +93,17 @@ def find_info(query_string: str) -> dict or None:
         medicine_pharmgroup = None
 
     try:
-        medicine_indication = medicine.find("div", {"id": "instr_cont_4"}).text.split(".")[0].strip()
+        medicine_indication_list = medicine.find("div", {"id": "instr_cont_4"}).text.split(".")[0].strip().split(";")
     except AttributeError:
         medicine_indication = None
+    else:
+        medicine_indication_list = [indication.capitalize() for indication in medicine_indication_list]
+
+        medicine_indication = ''
+        for indication in medicine_indication_list:
+            medicine_indication += indication + ".\n"
+
+        medicine_indication = medicine_indication.strip()
 
     try:
         medicine_contraindication = medicine.find("div", {"id": "instr_cont_5"}).text.split(".")[0].strip()
@@ -102,6 +111,70 @@ def find_info(query_string: str) -> dict or None:
         medicine_contraindication = None
 
     info = {
+        "link": medicine_page_link,
+        "name": medicine_name,
+        "active_ingredient": medicine_active_ingredient,
+        "pharmgroup": medicine_pharmgroup,
+        "indication": medicine_indication,
+        "contrandication": medicine_contraindication
+    }
+    return info
+
+
+def find_info_drug_control(query_string):
+    """
+    Takes a string as an argument parses website and returns a dictionary with the following keys:
+        name - medicine name
+        active_ingredient - active ingredient of the medicine
+        pharmgroup - pharmacological group of the medicine (e.g., analgesics, antiseptics)
+        indication - medical indication
+
+    :param query_string: Pass the name of the medicine to find
+    :return: A dictionary with the following keys: name, active_ingredient, pharmgroup, indication and contraindication
+    """
+    if not is_cyrillic(query_string):
+        query_string = translate(query_string)
+
+    url = f'https://likicontrol.com.ua/пошук-ліків/?' + query_string
+
+    scraper = cloudscraper.create_scraper()
+    request_result = scraper.get(url)
+
+    search = bs4.BeautifulSoup(request_result.text, "html.parser")
+
+    try:
+        medicine_page_link = search.find("a", string='Інструкція')["href"]
+    except TypeError:
+        return
+    else:
+        medicine_page_link = "https://likicontrol.com.ua" + medicine_page_link
+    medicine_page = scraper.get(medicine_page_link)
+    medicine = bs4.BeautifulSoup(medicine_page.text, "html.parser")
+
+    medicine_name = medicine.find("h1").text
+
+    medicine_active_ingredient = medicine.find(
+        "a",
+        string=re.compile('діюча речовина', re.IGNORECASE),
+    ).parent.text.split(":")[-1].strip().strip(";").capitalize()
+
+    medicine_pharmgroup = medicine.find(
+        "h2",
+        string=re.compile('група', re.IGNORECASE)
+    ).next_sibling.text.strip()
+
+    medicine_indication = medicine.find(
+        "b",
+        string=re.compile('показання', re.IGNORECASE),
+    ).next_sibling.text.strip()
+
+    medicine_contraindication = medicine.find(
+        "b",
+        string=re.compile('протипоказання', re.IGNORECASE),
+    ).find_next("p").text
+
+    info = {
+        "link": medicine_page_link,
         "name": medicine_name,
         "active_ingredient": medicine_active_ingredient,
         "pharmgroup": medicine_pharmgroup,

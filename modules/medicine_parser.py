@@ -148,30 +148,23 @@ def find_info_drug_control(query_string):
         return
     else:
         medicine_page_link = "https://likicontrol.com.ua" + medicine_page_link
+
     medicine_page = scraper.get(medicine_page_link)
     medicine = bs4.BeautifulSoup(medicine_page.text, "html.parser")
 
     medicine_name = medicine.find("h1").text
 
-    medicine_active_ingredient = medicine.find(
-        "a",
-        string=re.compile('діюча речовина', re.IGNORECASE),
-    ).parent.text.split(":")[-1].strip().strip(";").capitalize()
+    medicine_active_ingredient = parse_active_ingredient(medicine)
+    medicine_pharmgroup = parse_pharmgroup(medicine)
+    medicine_indication = parse_indication(medicine)
 
-    medicine_pharmgroup = medicine.find(
-        "h2",
-        string=re.compile('група', re.IGNORECASE)
-    ).next_sibling.text.strip()
-
-    medicine_indication = medicine.find(
-        "b",
-        string=re.compile('показання', re.IGNORECASE),
-    ).next_sibling.text.strip()
-
-    medicine_contraindication = medicine.find(
-        "b",
-        string=re.compile('протипоказання', re.IGNORECASE),
-    ).find_next("p").text
+    try:
+        medicine_contraindication = medicine.find(
+            "b",
+            string=re.compile('протипоказання', re.IGNORECASE),
+        ).find_next().find_next().text.split(".")[0].strip("-; ")
+    except AttributeError:
+        medicine_contraindication = "Не знайдено"
 
     info = {
         "link": medicine_page_link,
@@ -182,6 +175,63 @@ def find_info_drug_control(query_string):
         "contrandication": medicine_contraindication
     }
     return info
+
+
+def parse_active_ingredient(medicine):
+    try:
+        medicine_active_ingredient = medicine.find(
+            "a",
+            string=re.compile('діюча речовина', re.IGNORECASE),
+        ).parent.text.split(":")[-1].strip().strip(";").capitalize()
+        return medicine_active_ingredient
+    except AttributeError:
+        medicine_active_ingredient = "Не знайдено"
+
+    return medicine_active_ingredient
+
+
+def parse_pharmgroup(medicine):
+    try:
+        medicine_pharmgroup = medicine.find(
+            "h2",
+            string=re.compile('група', re.IGNORECASE)
+        ).next_sibling.text.strip(". ")
+        return medicine_pharmgroup
+    except AttributeError:
+        pass
+    
+    try:
+        medicine_pharmgroup = medicine.find(
+            "h2",
+            string=re.compile('група', re.IGNORECASE)
+        ).find_next().text.strip(". ")
+        return medicine_pharmgroup
+    except AttributeError:
+        medicine_pharmgroup = "Не знайдено"
+
+    return medicine_pharmgroup
+
+
+def parse_indication(medicine):
+    try:
+        medicine_indication = medicine.find(
+            "b",
+            string=re.compile('показання', re.IGNORECASE),
+        ).next_sibling.text.strip(". ")
+        return medicine_indication
+    except AttributeError:
+        pass
+
+    try:
+        medicine_indication = medicine.find(
+            "b",
+            string=re.compile('показання', re.IGNORECASE),
+        ).find_next().text.strip(". ")
+        return medicine_indication
+    except AttributeError:
+        medicine_indication = "Не знайдено"
+
+    return medicine_indication
 
 
 def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', print_end="") -> None:

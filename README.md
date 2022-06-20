@@ -11,7 +11,9 @@
 
 [![CodeFactor](https://www.codefactor.io/repository/github/andylvua/telegram_medicine-search-bot/badge/main)](https://www.codefactor.io/repository/github/andylvua/telegram_medicine-search-bot/overview/main)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-## Description 
+## Project wiki 
+**If you want to know more about our project or bot functionality, please visit the project [wiki page](https://github.com/andylvua/Telegram_medicine-search-bot/wiki)**
+## Description
 ### English 🇬🇧
 This bot was developed by a team of volunteers from Lviv Polytechnic National University. </br> The purpose of its creation is to help volunteers working at humanitarian aid sorting points. The bot will help you find information and a brief description of medicines via barcode.
 ### Ukrainian 🇺🇦

@@ -999,7 +999,7 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
             url = data["link"]
 
             update.message.reply_text(
-                text=f"ℹ️ <b>Медикамент {query} відсутній у базі даних MSB</b>"
+                text=f'ℹ️ <b>Медикамент "{query}" відсутній у базі даних MSB</b>'
                      f"\n\n<b><i>[Beta]</i></b> Ось інформація з ресурсу <a href=><b>tabletki.ua</b></a>"
                      f"\n\n<b>Назва:</b> {data['name']}"
                      f"\n<b>Діюча речовина:</b> {data['active_ingredient']}"
@@ -1022,7 +1022,7 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
             url = data["link"]
 
             update.message.reply_text(
-                text=f"ℹ️ <b>Медикамент {query} відсутній у базі даних MSB</b>"
+                text=f'ℹ️ <b>Медикамент "{query}" відсутній у базі даних MSB</b>'
                      f"\n\n<b><i>[Beta]</i></b> Ось інформація з ресурсу <a href=><b>likicontrol.com.ua</b></a>"
                      f"\n\n<b>Назва:</b> {data['name']}"
                      f"\n<b>Діюча речовина:</b> {data['active_ingredient']}"

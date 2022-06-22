@@ -1,6 +1,8 @@
 from typing import Optional
 from langdetect import detect
 
+SPECIAL_CHARACTERS = "!@#$%^&*+?_=<>/"
+
 
 def check_name(name) -> Optional[str]:
     """
@@ -12,6 +14,7 @@ def check_name(name) -> Optional[str]:
     """
     try:
         assert not name.isdigit()
+        assert not any(char in SPECIAL_CHARACTERS for char in name)
         return name
     except AssertionError:
         return None
@@ -27,6 +30,7 @@ def check_active_ingredient(active_ingredient) -> Optional[str]:
     """
     try:
         assert not active_ingredient.isdigit()
+        assert not any(char in SPECIAL_CHARACTERS for char in active_ingredient)
         return active_ingredient
     except AssertionError:
         return None

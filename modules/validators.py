@@ -6,11 +6,11 @@ SPECIAL_CHARACTERS = "!@#$%^&*+?_=<>/"
 
 def check_name(name) -> Optional[str]:
     """
-    The check_name function checks that the name is not a digit.
+    Checks that the name is not digit-only and does not contain a special characters.
     It returns the name if it's not a digit, otherwise None.
 
-    :param name: Check if the name is a digit
-    :return: The name if it is not a digit, otherwise none
+    :param name: The name of the drug
+    :return: The name if it passes the checks, otherwise none
     """
     try:
         assert not name.isdigit()
@@ -22,11 +22,11 @@ def check_name(name) -> Optional[str]:
 
 def check_active_ingredient(active_ingredient) -> Optional[str]:
     """
-    The check_active_ingredient function checks if the active ingredient is a string.
+    Checks if name of the active ingredient is not digit-only and does not contain a special characters.
     If it is not, then it returns None.
 
-    :param active_ingredient: Check if the active ingredient is a string
-    :return: None if the active ingredient is a digit
+    :param active_ingredient: The active ingredient of the drug
+    :return: The active ingredient if it passes the checks, otherwise none
     """
     try:
         assert not active_ingredient.isdigit()

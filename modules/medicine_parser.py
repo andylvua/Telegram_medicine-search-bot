@@ -45,39 +45,6 @@ def find_info_tabletki_ua(query_string: str) -> dict or None:
     :param query_string: Pass the name of the medicine to find
     :return: A dictionary with the following keys: name, active_ingredient, pharmgroup, indication and contraindication
     """
-    if not is_cyrillic(query_string):
-        query_string = translate(query_string)
-
-    url = f'https://tabletki.ua/uk/search/' + query_string
-
-    scraper = cloudscraper.create_scraper()
-    request_result = scraper.get(url)
-
-    search = bs4.BeautifulSoup(request_result.text, "html.parser")
-
-    availability_check = search.find("div", {"class": "page-not-found__message"})
-
-    if availability_check:
-        return
-
-    try:
-        search_result = search.find("div", {"id": "sku_0"}).find("a")
-    except AttributeError:
-        try:
-            search_result = search.find("div", {"class": "carousel-item col carousel-simple-item"}).find("a")
-        except AttributeError:
-            return
-
-    medicine_name = search_result["title"]
-    medicine_page_link = 'https://tabletki.ua' + search_result["href"]
-
-    medicine_photo_link = search_result.find("img")["src"]
-    medicine_photo = requests.get(medicine_photo_link).content
-
-    medicine_page = scraper.get(medicine_page_link)
-
-    medicine = bs4.BeautifulSoup(medicine_page.text, "html.parser")
-
     def parse_active_ingredient(_medicine):
         try:
             _medicine_active_ingredient = medicine.find("div", {"id": "instr_cont_0"}).find("p").text \
@@ -122,6 +89,39 @@ def find_info_tabletki_ua(query_string: str) -> dict or None:
             _medicine_contraindication = "Не знайдено"
 
         return _medicine_contraindication
+
+    if not is_cyrillic(query_string):
+        query_string = translate(query_string)
+
+    url = f'https://tabletki.ua/uk/search/' + query_string
+
+    scraper = cloudscraper.create_scraper()
+    request_result = scraper.get(url)
+
+    search = bs4.BeautifulSoup(request_result.text, "html.parser")
+
+    availability_check = search.find("div", {"class": "page-not-found__message"})
+
+    if availability_check:
+        return
+
+    try:
+        search_result = search.find("div", {"id": "sku_0"}).find("a")
+    except AttributeError:
+        try:
+            search_result = search.find("div", {"class": "carousel-item col carousel-simple-item"}).find("a")
+        except AttributeError:
+            return
+
+    medicine_name = search_result["title"]
+    medicine_page_link = 'https://tabletki.ua' + search_result["href"]
+
+    medicine_photo_link = search_result.find("img")["src"]
+    medicine_photo = requests.get(medicine_photo_link).content
+
+    medicine_page = scraper.get(medicine_page_link)
+
+    medicine = bs4.BeautifulSoup(medicine_page.text, "html.parser")
 
     medicine_active_ingredient = parse_active_ingredient(medicine)
     medicine_pharmgroup = parse_pharmgroup(medicine)

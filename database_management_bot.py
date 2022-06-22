@@ -433,7 +433,6 @@ def inline_adding(update: Update, context: CallbackContext) -> int:
     context.user_data["query"] = query
 
     barcode = query.data.split("$")[1]
-    print(barcode)
 
     reply_keyboard = [['Скасувати додавання']]
 
@@ -601,7 +600,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text='*Вкажіть, будь ласка, корректну назву*'
-                 f'\n\nПоточна назва "{name}" містить тільки цифри',
+                 f'\n\nНазва не має складатись тільки з цифр та містити спеціальних символів',
             parse_mode="MarkdownV2",
             reply_markup=ForceReply(input_field_placeholder="Повторіть"),
         )
@@ -640,7 +639,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text='*Вкажіть, будь ласка, корректну назву діючої речовини*'
-                 f'\n\nПоточна назва діючої речовини "{active_ingredient}" містить тільки цифри',
+                 f'\n\nНазва діючої речовини не має складатись тільки з цифр та містити спеціальних символів',
             parse_mode="MarkdownV2",
             reply_markup=ForceReply(input_field_placeholder="Повторіть"),
         )

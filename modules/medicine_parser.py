@@ -17,10 +17,7 @@ def is_cyrillic(query_string: str) -> bool:
     :param query_string: Check if the query string contains any cyrillic characters
     :return: True if the query_string contains any cyrillic characters, and false otherwise
     """
-    if regex.search(r'\p{IsCyrillic}', query_string):
-        return True
-    else:
-        return False
+    return regex.search(r'\p{IsCyrillic}', query_string)
 
 
 def translate(query_string: str) -> str:
@@ -45,7 +42,7 @@ def find_info_tabletki_ua(query_string: str) -> dict or None:
     :param query_string: Pass the name of the medicine to find
     :return: A dictionary with the following keys: name, active_ingredient, pharmgroup, indication and contraindication
     """
-    def parse_active_ingredient(_medicine):
+    def parse_active_ingredient(_medicine: bs4.BeautifulSoup) -> str:
         try:
             _medicine_active_ingredient = medicine.find("div", {"id": "instr_cont_0"}).find("p").text \
                 .split(":")[-1].strip().strip(";").capitalize()
@@ -55,7 +52,7 @@ def find_info_tabletki_ua(query_string: str) -> dict or None:
 
         return _medicine_active_ingredient
 
-    def parse_pharmgroup(_medicine):
+    def parse_pharmgroup(_medicine: bs4.BeautifulSoup) -> str:
         try:
             _medicine_pharmgroup = medicine.find("div", {"id": "instr_cont_2"}).find("p").text.strip()
             return _medicine_pharmgroup
@@ -64,7 +61,7 @@ def find_info_tabletki_ua(query_string: str) -> dict or None:
 
         return _medicine_pharmgroup
 
-    def parse_indication(_medicine):
+    def parse_indication(_medicine: bs4.BeautifulSoup) -> str:
         try:
             medicine_indication_list = medicine.find("div", {"id": "instr_cont_4"}).text.split(".")[0].strip().split(
                 ";")
@@ -81,7 +78,7 @@ def find_info_tabletki_ua(query_string: str) -> dict or None:
 
         return _medicine_indication
 
-    def parse_contraindication(_medicine):
+    def parse_contraindication(_medicine: bs4.BeautifulSoup) -> str:
         try:
             _medicine_contraindication = medicine.find("div", {"id": "instr_cont_5"}).text.split(".")[0].strip()
             return _medicine_contraindication
@@ -93,7 +90,7 @@ def find_info_tabletki_ua(query_string: str) -> dict or None:
     if not is_cyrillic(query_string):
         query_string = translate(query_string)
 
-    url = f'https://tabletki.ua/uk/search/' + query_string
+    url = 'https://tabletki.ua/uk/search/' + query_string
 
     scraper = cloudscraper.create_scraper()
     request_result = scraper.get(url)
@@ -151,7 +148,7 @@ def find_info_drug_control(query_string):
     :return: A dictionary with the following keys: name, active_ingredient, pharmgroup, indication and contraindication
     """
 
-    def parse_active_ingredient(_medicine):
+    def parse_active_ingredient(_medicine: bs4.BeautifulSoup) -> str:
         try:
             _medicine_active_ingredient = medicine.find(
                 "a",
@@ -163,7 +160,7 @@ def find_info_drug_control(query_string):
 
         return _medicine_active_ingredient
 
-    def parse_pharmgroup(_medicine):
+    def parse_pharmgroup(_medicine: bs4.BeautifulSoup) -> str:
         try:
             _medicine_pharmgroup = medicine.find(
                 "h2",
@@ -184,7 +181,7 @@ def find_info_drug_control(query_string):
 
         return _medicine_pharmgroup
 
-    def parse_indication(_medicine):
+    def parse_indication(_medicine: bs4.BeautifulSoup) -> str:
         try:
             _medicine_indication = medicine.find(
                 "b",
@@ -205,7 +202,7 @@ def find_info_drug_control(query_string):
 
         return _medicine_indication
 
-    def parse_contraindication(_medicine):
+    def parse_contraindication(_medicine: bs4.BeautifulSoup) -> str:
         try:
             _medicine_contraindication = medicine.find(
                 "b",
@@ -219,7 +216,7 @@ def find_info_drug_control(query_string):
     if not is_cyrillic(query_string):
         query_string = translate(query_string)
 
-    url = f'https://likicontrol.com.ua/пошук-ліків/?' + query_string
+    url = 'https://likicontrol.com.ua/пошук-ліків/?' + query_string
 
     scraper = cloudscraper.create_scraper()
     request_result = scraper.get(url)
@@ -285,6 +282,13 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
 
 
 def parser():
+    """
+    Returns a dictionary with the name, active ingredient,
+    pharmaceutical group and other information about the medicine. The function uses find_info_tabletki_ua() to get
+    the data from tabletki.ua
+
+    :return: A list of dictionaries with the information about medicines
+    """
     with open('names.txt') as file:
         names_lines = file.readlines()
 

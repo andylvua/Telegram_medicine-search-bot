@@ -600,7 +600,7 @@ def get_active_ingredient(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text='*Вкажіть, будь ласка, корректну назву*'
-                 f'\n\nНазва не має складатись тільки з цифр та містити спеціальних символів',
+                 '\n\nНазва не має складатись тільки з цифр та містити спеціальних символів',
             parse_mode="MarkdownV2",
             reply_markup=ForceReply(input_field_placeholder="Повторіть"),
         )
@@ -639,7 +639,7 @@ def get_about(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             text='*Вкажіть, будь ласка, корректну назву діючої речовини*'
-                 f'\n\nНазва діючої речовини не має складатись тільки з цифр та містити спеціальних символів',
+                 '\n\nНазва діючої речовини не має складатись тільки з цифр та містити спеціальних символів',
             parse_mode="MarkdownV2",
             reply_markup=ForceReply(input_field_placeholder="Повторіть"),
         )
@@ -672,7 +672,6 @@ def get_photo(update: Update, context: CallbackContext) -> int:
     """
     logger.info("Entered description: %s", update.message.text)
 
-    user = update.message.from_user
     reply_keyboard = [['Скасувати додавання', 'Пропустити']]
 
     description = update.message.text
@@ -727,14 +726,11 @@ def get_photo(update: Update, context: CallbackContext) -> int:
 
 
 @under_maintenance
-def skip_photo(update: Update, context: CallbackContext) -> int:
+def skip_photo() -> int:
     """
     The skip_photo function skips adding photo of the front side of
     the medicine package.
 
-
-    :param update: Update: Update the user's profile
-    :param context: CallbackContext: Pass information to the callback function
     :return: Check state of the conversation
     """
     return CHECK
@@ -752,8 +748,6 @@ def check_info(update: Update, context: CallbackContext) -> int:
     :return: Insert state of the conversation
     """
     logger.info("All info collected successfully. Now checking...")
-
-    user = update.message.from_user
 
     drug_info = context.user_data["DRUG_INFO"]
 
@@ -1425,9 +1419,6 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
 
     document = collection.find_one({"code": drug_info["code"]})
     if "report" in document:
-        logger.info("Report for this document already exists. Concatenating")
-
-        # number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": drug_info["code"]},
                               {"$set": {"report": document["report"] + f", [{user_id}]: " + report_description}})
     else:

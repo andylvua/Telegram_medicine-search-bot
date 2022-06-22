@@ -923,7 +923,6 @@ def add_report_description(update: Update, context: CallbackContext) -> Conversa
     document = collection.find_one({"code": drug_code})
 
     if "report" in document:
-        number = int(re.findall('\[.*?]', document["report"])[-1].strip("[]"))
         collection.update_one({"code": drug_code},
                               {"$set": {"report": document["report"] + f", [{user_id}]: " + report_description}})
     else:
@@ -1040,7 +1039,7 @@ def search_by_name(update: Update, context: CallbackContext) -> ConversationHand
             return ConversationHandler.END
 
         update.message.reply_text(
-            text=f"❌ *Нічого не знайдено*",
+            text="❌ *Нічого не знайдено*",
             parse_mode="MarkdownV2",
             reply_markup=ReplyKeyboardMarkup(
                 reply_keyboard,

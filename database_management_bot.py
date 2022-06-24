@@ -1,6 +1,6 @@
 """
 Author: Andrew Yaroshevych
-Version: 2.8.6 Development
+Version: 1.0.0-alpha
 """
 import os
 import io

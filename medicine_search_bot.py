@@ -330,7 +330,7 @@ def send_scanned_barcode_image(update: Update, bytes_image: io.BytesIO) -> None:
                 (rect.left + rect.width, rect.top + rect.height)
             ),
             outline='#c4102e',
-            width=5
+            width=5,
         )
 
     output = io.BytesIO()
@@ -488,9 +488,7 @@ def get_query_heading(barcode) -> str:
     request_result = requests.get(url)
     soup = bs4.BeautifulSoup(request_result.text, "html.parser")
 
-    heading_objects = soup.find_all('h3')
-
-    first_3_headings = heading_objects[0:3]
+    first_3_headings = soup.find_all('h3', limit = 3)
 
     for heading in first_3_headings:
         if detect(heading.getText()) == "uk":
@@ -604,8 +602,8 @@ def tell_about(update: Update, context: CallbackContext) -> None:
         open('resources/MSB_Logo.png', 'rb'),
         caption='Слава Україні! 🇺🇦\n\n'
                 '🤖 Я - бот, створений командою студентів зі Львова.\n\n✅ Моє завдання - допомогти '
-                'волонтерам, що праwюють на '
-                'пункnах сортування гуманітарної допомоги. Я допоможу Вам знайти інформацію та короткий '
+                'волонтерам, що працюють на '
+                'пунктах сортування гуманітарної допомоги. Я допоможу Вам знайти інформацію та короткий '
                 'опис про медичні '
                 'препарати за допомогою штрих-коду.'
                 '\n\n🥇 Це дозволить пришвидшити роботу, а також якість сортування медикаментів '
@@ -888,7 +886,7 @@ def start_report(update: Update, context: CallbackContext) -> int:
 
     update.message.reply_text(
         text="❗️️ *Ви повідомляєте про проблему з інформацією про "
-             f"медикамент зі штрих\-кодом __{str(drug_code)}__*"
+             f"медикамент зі штрих\-кодом __{drug_code}__*"
              "\n\nНадішліть, будь ласка, короткий опис проблеми",
         parse_mode="MarkdownV2",
         reply_markup=ReplyKeyboardMarkup(
@@ -962,7 +960,7 @@ def start_search(update: Update, context: CallbackContext) -> int:
             reply_keyboard,
             one_time_keyboard=True,
             resize_keyboard=True,
-            input_field_placeholder='Опис проблеми',
+            input_field_placeholder='Пошук...',
         ),
     )
     return SEARCH

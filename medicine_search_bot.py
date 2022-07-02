@@ -497,7 +497,7 @@ def get_query_heading(barcode) -> str:
     request_result = requests.get(url)
     soup = bs4.BeautifulSoup(request_result.text, "html.parser")
 
-    first_3_headings = soup.find_all('h3', limit = 3)
+    first_3_headings = soup.find_all('h3', limit=3)
 
     for heading in first_3_headings:
         if detect(heading.getText()) == "uk":

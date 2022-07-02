@@ -185,7 +185,7 @@ def start_handler(update: Update, context: CallbackContext) -> ConversationHandl
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    update.message.reply_text(
+    update.message.reply_tex(
         text='🇺🇦 '
              '*Привіт\! Я бот для адміністрування бази даних Telegram MSB\.*'
              '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- '
@@ -230,7 +230,7 @@ def scan_handler(update: Update, context: CallbackContext) -> None:
     )
 
 
-def get_db_query_result(barcode) -> bool or None:
+def get_db_query_result(barcode: str) -> bool or None:
     """
     The get_db_query_result function takes a barcode as an argument and returns the result of a MongoDB query.
     If no results are found, it returns None.
@@ -238,13 +238,10 @@ def get_db_query_result(barcode) -> bool or None:
     :param barcode: Check if the barcode exists in the database
     :return: A dictionary with the product information if the barcode exists in the database
     """
-    try:
-        logger.info("Database quired. Checking availability")
-        query_result = collection.find_one({"code": barcode}, {"_id": 0})
-        return query_result
-    except Exception as e:
-        logger.error(e)
-        return
+    logger.info("Database quired. Checking availability")
+
+    query_result = collection.find_one({"code": barcode}, {"_id": 0})
+    return query_result
 
 
 def format_query(query_result) -> str or None:
@@ -256,15 +253,11 @@ def format_query(query_result) -> str or None:
     :param query_result: Retrieve the information from the database
     :return: A string containing the name, active ingredient and description of the drug
     """
-    try:
-        logger.info("Retrieving info")
-        str_output = f"<b>Назва</b>: {query_result['name']} " \
-                     f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
-                     f"\n<b>Опис</b>: {query_result['description']} "
-        return str_output
-    except Exception as e:
-        logger.info(e)
-        return
+    logger.info("Retrieving info")
+    str_output = f"<b>Назва</b>: {query_result['name']} " \
+                 f"\n<b>Діюча речовина</b>: {query_result['active_ingredient']} " \
+                 f"\n<b>Опис</b>: {query_result['description']} "
+    return str_output
 
 
 def retrieve_query_photo(query_result) -> bytes or None:
@@ -1532,98 +1525,82 @@ def send_feedback(update: Update, context: CallbackContext) -> ConversationHandl
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    try:
-        with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.ehlo()
+    with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.ehlo()
 
-            address = os.environ.get('email_address')
-            password = os.environ.get('email_password')
+        address = os.environ.get('email_address')
+        password = os.environ.get('email_password')
 
-            smtp.login(address, password)
+        smtp.login(address, password)
 
-            msg = EmailMessage()
+        msg = EmailMessage()
 
-            msg['Subject'] = "User response for MSB DB Management Bot"
-            msg['From'] = address
-            msg['To'] = address
+        msg['Subject'] = "User response for MSB DB Management Bot"
+        msg['From'] = address
+        msg['To'] = address
 
-            user_data = f"<br><br><br><b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
-            message = feedback_msg + user_data
+        user_data = f"<br><br><br><b>User ID:</b> {update.effective_user.id}<br><b>User name:</b> {user.first_name}"
+        message = feedback_msg + user_data
 
-            content = \
-                f"""<!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>User Response</title>
-                </head>
-                
-                <link rel="preconnect" href="https://fonts.googleapis.com">
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300&display=swap" rel="stylesheet">
-                <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200&display=swap" rel="stylesheet">
-                
-                <body style="background-image: linear-gradient(160deg, #0d1d1b, #041421);">
-                <h1 style="color: #ffffff; font-family: 'Nunito', sans-serif; text-align: center; padding-top: 20px;">
-                    User Response
-                </h1>
-                
-                <p style="color: #ffffff; font-family: 'Nunito', sans-serif; font-size:120%; padding: 10px 50px;">
-                    {message}
-                </p>
-                
-                <div style="position:fixed;
-                            left:0;
-                            bottom:0;
-                            height:70px;
-                            width:100%;
-                            border-top: 1px solid #ffffff;
-                            ">
-                <p align="center"><a style="text-decoration: none;
-                                            margin-bottom: 0px;
-                                            color: #ffffff;
-                                            font-family: 'Nunito', sans-serif;" 
-                                            href="https://t.me/medicine_search_bot">
-                                            <img style="max-width: 40px;" 
-                                                        src="https://www.linkpicture.com/q/MSB_Logo_transparent.png" 
-                                                        alt="Logo"></a></p>
-                </div>
-                </body>
-                </html>"""
+        content = \
+            f"""<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>User Response</title>
+            </head>
+            
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300&display=swap" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200&display=swap" rel="stylesheet">
+            
+            <body style="background-image: linear-gradient(160deg, #0d1d1b, #041421);">
+            <h1 style="color: #ffffff; font-family: 'Nunito', sans-serif; text-align: center; padding-top: 20px;">
+                User Response
+            </h1>
+            
+            <p style="color: #ffffff; font-family: 'Nunito', sans-serif; font-size:120%; padding: 10px 50px;">
+                {message}
+            </p>
+            
+            <div style="position:fixed;
+                        left:0;
+                        bottom:0;
+                        height:70px;
+                        width:100%;
+                        border-top: 1px solid #ffffff;
+                        ">
+            <p align="center"><a style="text-decoration: none;
+                                        margin-bottom: 0px;
+                                        color: #ffffff;
+                                        font-family: 'Nunito', sans-serif;" 
+                                        href="https://t.me/medicine_search_bot">
+                                        <img style="max-width: 40px;" 
+                                                    src="https://www.linkpicture.com/q/MSB_Logo_transparent.png" 
+                                                    alt="Logo"></a></p>
+            </div>
+            </body>
+            </html>"""
 
-            msg.set_content(content, subtype='html')
-            smtp.send_message(msg)
+        msg.set_content(content, subtype='html')
+        smtp.send_message(msg)
 
-        logger.info("User %s reviewed successfully", user.first_name)
+    logger.info("User %s reviewed successfully", user.first_name)
 
-        update.message.reply_text(
-            text="*Щиро дякуємо* ❤️ "
-                 "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
-            parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(
-                reply_keyboard,
-                one_time_keyboard=True,
-                resize_keyboard=True,
-                input_field_placeholder='Оберіть опцію',
-            ),
-        )
-    except Exception as e:
-        logger.warning("Something went wrong during review")
-        logger.warning(e)
-
-        update.message.reply_text(
-            text="*Упс\.\.\. Щось пішло не так* 😞️"
-                 "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота\.",
-            parse_mode="MarkdownV2",
-            reply_markup=ReplyKeyboardMarkup(
-                reply_keyboard,
-                one_time_keyboard=True,
-                resize_keyboard=True,
-                input_field_placeholder='Оберіть опцію',
-            ),
-        )
+    update.message.reply_text(
+        text="*Щиро дякуємо* ❤️ "
+             "\n\nВаш відгук надіслано\. Ми обовʼязково розглянем його найближчим часом",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
+    )
 
     return ConversationHandler.END
 
@@ -2070,6 +2047,31 @@ def send_plot(update: Update, context: CallbackContext) -> None:
     loading_message.delete()
 
 
+def send_error_message(update: Update, context: CallbackContext) -> None:
+    """
+    The send_error_message function sends an error message to the user.
+    It takes in an update and context objects as parameters, and returns None.
+
+    :param update: Update: Access the telegram api
+    :param context: CallbackContext: Access data,
+    :return: None
+    """
+    logger.warning("Something went wrong")
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="*Упс\.\.\. Щось пішло не так* 😞️"
+             "\n\nСпробуйте ще раз, або звʼяжіться з адміністратором бота *@andylvua*",
+        parse_mode="MarkdownV2",
+        reply_markup=ReplyKeyboardMarkup(
+            MAIN_REPLY_KEYBOARD,
+            one_time_keyboard=True,
+            resize_keyboard=True,
+            input_field_placeholder='Оберіть опцію',
+        ),
+    )
+
+
 def main() -> None:
     token = os.environ.get('msb_db_token')
     # port = int(os.environ.get('PORT', '8443'))
@@ -2216,6 +2218,7 @@ def main() -> None:
     dispatcher.add_handler(cancel_echo)
     dispatcher.add_handler(ban)
 
+    dispatcher.add_error_handler(send_error_message)
     updater.start_polling()
     # updater.start_webhook(listen="0.0.0.0",
     #                       port=port,

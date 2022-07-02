@@ -187,7 +187,7 @@ def start_handler(update: Update, context: CallbackContext) -> ConversationHandl
 
     update.message.reply_text(
         text='🇺🇦 '
-             '*Привіт\! Я бот для адміністування бази даних Telegram MSB\.*'
+             '*Привіт\! Я бот для адміністрування бази даних Telegram MSB\.*'
              '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- '
              'рекомендую подивитись розділ "Інструкції"'
              '\n\nЦе можна зробити будь\-коли за допомогою команди */help*',
@@ -241,9 +241,6 @@ def get_db_query_result(barcode) -> bool or None:
     try:
         logger.info("Database quired. Checking availability")
         query_result = collection.find_one({"code": barcode}, {"_id": 0})
-        if query_result is None:
-            return
-
         return query_result
     except Exception as e:
         logger.error(e)
@@ -1161,7 +1158,7 @@ def instructions_handler(update: Update, context: CallbackContext) -> Conversati
 @under_maintenance
 def register(update: Update, context: CallbackContext) -> int:
     """
-    The register_experimental function is a callback function for the /authorize command.
+    The register function is a callback function for the /authorize command.
     It is used to register an admin user.
     The function first checks if the user is already registered as an admin, and if so,
     it cancels the registration process.

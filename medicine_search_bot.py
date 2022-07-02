@@ -255,9 +255,6 @@ def get_db_query_result(barcode) -> bool or None:
     try:
         logger.info("Database quired. Checking availability")
         query_result = collection.find_one({"code": barcode}, {"_id": 0})
-        if query_result is None:
-            return
-
         return query_result
     except Exception as e:
         logger.error(e)

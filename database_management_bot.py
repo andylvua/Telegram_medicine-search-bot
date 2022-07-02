@@ -21,10 +21,25 @@ from dotenv import load_dotenv
 
 from pymongo import MongoClient
 
-from telegram import ReplyKeyboardMarkup, Update, KeyboardButton, ForceReply, ChatAction, InlineKeyboardButton, \
-    InlineKeyboardMarkup, WebAppInfo
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext, \
-    CallbackQueryHandler
+from telegram import (
+    ReplyKeyboardMarkup,
+    Update,
+    KeyboardButton,
+    ForceReply,
+    ChatAction,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    WebAppInfo,
+)
+from telegram.ext import (
+    Updater,
+    CommandHandler,
+    MessageHandler,
+    Filters,
+    ConversationHandler,
+    CallbackContext,
+    CallbackQueryHandler,
+)
 
 from modules.face_recognition import find_faces
 from modules import validators, statistics

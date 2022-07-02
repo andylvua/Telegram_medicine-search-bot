@@ -23,10 +23,22 @@ from pymongo import MongoClient
 
 from langdetect import detect
 
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, \
-    ChatAction
-from telegram.ext import Updater, Filters, CallbackContext, CommandHandler, MessageHandler, CallbackQueryHandler, \
-    ConversationHandler
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ChatAction,
+)
+from telegram.ext import (
+    Updater,
+    Filters,
+    CallbackContext,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ConversationHandler,
+)
 
 from modules.medicine_parser import find_info_tabletki_ua, find_info_drug_control
 

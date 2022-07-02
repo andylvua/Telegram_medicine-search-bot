@@ -185,7 +185,7 @@ def start_handler(update: Update, context: CallbackContext) -> ConversationHandl
 
     reply_keyboard = MAIN_REPLY_KEYBOARD
 
-    update.message.reply_tex(
+    update.message.reply_text(
         text='🇺🇦 '
              '*Привіт\! Я бот для адміністрування бази даних Telegram MSB\.*'
              '\n\nОберіть опцію, будь ласка\. Якщо ви користуєтесь ботом вперше \- '
